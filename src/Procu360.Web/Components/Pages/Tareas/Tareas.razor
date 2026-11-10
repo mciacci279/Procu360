@@ -8,9 +8,14 @@
 
 <PageTitle>Tareas · Procu360</PageTitle>
 
-<div class="d-flex align-items-baseline gap-3 mb-3">
-    <h1 class="h3 mb-0">Tareas y agenda</h1>
-    <a href="/tareas/calendario">Ver calendario</a>
+<div class="encabezado-pagina">
+    <div>
+        <h1>Tareas y agenda</h1>
+        <p class="bajada">Lo pendiente del Estudio y de tus expedientes.</p>
+    </div>
+    <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="/tareas/calendario">
+        <Icono Nombre="calendario" Tamano="18" /> Ver calendario
+    </a>
 </div>
 
 @if (_mensaje is not null)
@@ -18,71 +23,108 @@
     <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
 }
 
-<div class="row g-2 align-items-end mb-3">
-    <div class="col-md-4">
-        <label class="form-label" for="filtro">Ver</label>
-        <select id="filtro" class="form-select" @onchange="CambiarFiltroAsync">
-            <option value="Pendientes" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes)">Pendientes</option>
-            <option value="Vencidas" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Vencidas)">Vencidas</option>
-            <option value="Hoy" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Hoy)">Vencen hoy</option>
-            <option value="Semana" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Semana)">Próximos 7 días</option>
-            <option value="Cumplidas" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Cumplidas)">Cumplidas</option>
-            <option value="Todas" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Todas)">Todas</option>
-        </select>
+<div class="tarjeta panel-filtros">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+        <span class="rotulo-filtros" style="font-size: 13px; font-weight: 600; color: var(--p-texto-tenue)">Ver</span>
+        <div class="segmentado" role="group" aria-label="Filtro de tareas">
+            @foreach (var (filtro, nombre) in Filtros)
+            {
+                <button type="button" class="@(_filtro == filtro ? "activo" : "")" aria-pressed="@(_filtro == filtro ? "true" : "false")"
+                        @onclick="() => CambiarFiltroAsync(filtro)">@nombre</button>
+            }
+        </div>
     </div>
 </div>
 
 @if (_resultado is null)
 {
-    <p>Cargando…</p>
+    <p class="text-muted">Cargando…</p>
 }
 else if (_resultado.Total == 0)
 {
-    <p class="text-muted">No hay tareas en esta vista.</p>
+    <div class="tarjeta text-center py-5">
+        <span class="icono-tono tono-verde mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="tareas" Tamano="24" Grosor="2" /></span>
+        <p class="mb-0 fw-semibold">No hay tareas en esta vista.</p>
+    </div>
 }
 else
 {
-    <p class="text-muted">@_resultado.Total tareas · página @_resultado.Pagina de @_resultado.Paginas</p>
-    <table class="table table-sm align-middle">
-        <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th><th>Responsable</th><th></th></tr></thead>
-        <tbody>
-            @foreach (var t in _resultado.Filas)
-            {
-                <tr class="@(t.Vence is DateOnly v && v < Hoy && t.Estado == 1 ? "table-danger" : "")">
-                    <td>@(t.Vence?.ToString("dd/MM/yyyy") ?? "—")</td>
-                    <td>@t.Titulo @(t.VisibleParaTodos ? "· visible para todos" : "")</td>
-                    <td>
-                        @if (t.NroOrden is int n && t.ExpedienteId is long e)
-                        {
-                            <a href="/expedientes/@e">@n.ToString("D5")</a>
-                        }
-                        else
-                        {
-                            <span class="text-muted">—</span>
-                        }
-                    </td>
-                    <td>@(t.Responsable ?? "—")</td>
-                    <td>
-                        @if (t.Estado == 1 && _puedeEditar)
-                        {
-                            <button class="btn btn-sm btn-outline-success" @onclick="() => CumplirAsync(t.Id)">Cumplida</button>
-                        }
-                        else if (t.Estado == 2)
-                        {
-                            <span class="badge text-bg-success">Cumplida</span>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="resumen-resultados">
+        <span><strong>@_resultado.Total</strong> tareas</span>
+        <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
+    </div>
+    <div class="tabla-contenedor">
+        <table class="table">
+            <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th><th>Responsable</th><th class="text-end">Estado</th></tr></thead>
+            <tbody>
+                @foreach (var t in _resultado.Filas)
+                {
+                    <tr class="@(t.Vence is DateOnly v && v < Hoy && t.Estado == 1 ? "vencida" : "")">
+                        <td>
+                            @if (t.Vence is DateOnly vence)
+                            {
+                                if (t.Estado == 1 && vence == Hoy)
+                                {
+                                    <span class="pastilla roja">Hoy</span>
+                                }
+                                else if (t.Estado == 1 && vence < Hoy)
+                                {
+                                    <span class="pastilla roja">Vencida · @vence.ToString("dd/MM/yyyy")</span>
+                                }
+                                else
+                                {
+                                    <span class="numero">@vence.ToString("dd/MM/yyyy")</span>
+                                }
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="principal-celda">@t.Titulo</span>
+                            @if (t.VisibleParaTodos) { <span class="secundario">Visible para todo el Estudio</span> }
+                        </td>
+                        <td>
+                            @if (t.NroOrden is int n && t.ExpedienteId is long e)
+                            {
+                                <a class="nro" href="/expedientes/@e">@n.ToString("D5")</a>
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </td>
+                        <td>@(t.Responsable ?? "—")</td>
+                        <td class="text-end">
+                            @if (t.Estado == 1 && _puedeEditar)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => CumplirAsync(t.Id)">Marcar cumplida</button>
+                            }
+                            else if (t.Estado == 2)
+                            {
+                                <span class="pastilla verde">Cumplida</span>
+                            }
+                            else
+                            {
+                                <span class="pastilla ambar">Pendiente</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @if (_puedeCrear)
 {
-    <div class="card p-3 mt-4" style="max-width: 640px;">
-        <h2 class="h5">Nueva tarea</h2>
-        <div class="row g-2">
+    <section class="tarjeta mt-4" style="max-width: 760px" aria-labelledby="titulo-nueva">
+        <div class="cabecera-seccion">
+            <span class="icono-tono tono-azul"><Icono Nombre="mas" Tamano="18" Grosor="2.2" /></span>
+            <h2 id="titulo-nueva">Nueva tarea</h2>
+        </div>
+        <div class="row g-3">
             <div class="col-md-8">
                 <label class="form-label" for="titulo">Título</label>
                 <input id="titulo" class="form-control" @bind="_nuevoTitulo" maxlength="150" />
@@ -96,19 +138,29 @@ else
                 <input id="expediente" class="form-control" @bind="_nuevoNro" />
             </div>
             <div class="col-md-6 d-flex align-items-end">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="todos" @bind="_nuevoParaTodos" />
-                    <label class="form-check-label" for="todos">Visible para todo el Estudio (sin expediente)</label>
-                </div>
+                <label class="chip-toggle">
+                    <input type="checkbox" @bind="_nuevoParaTodos" />
+                    <span>Visible para todo el Estudio (sin expediente)</span>
+                </label>
             </div>
             <div class="col-12">
                 <button class="btn btn-primary" @onclick="CrearAsync">Crear tarea</button>
             </div>
         </div>
-    </div>
+    </section>
 }
 
 @code {
+    private static readonly (Procu360.Infraestructura.Tareas.FiltroTareas, string)[] Filtros =
+    [
+        (Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes, "Pendientes"),
+        (Procu360.Infraestructura.Tareas.FiltroTareas.Vencidas, "Vencidas"),
+        (Procu360.Infraestructura.Tareas.FiltroTareas.Hoy, "Vencen hoy"),
+        (Procu360.Infraestructura.Tareas.FiltroTareas.Semana, "Próximos 7 días"),
+        (Procu360.Infraestructura.Tareas.FiltroTareas.Cumplidas, "Cumplidas"),
+        (Procu360.Infraestructura.Tareas.FiltroTareas.Todas, "Todas"),
+    ];
+
     private Procu360.Infraestructura.Tareas.FiltroTareas _filtro = Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes;
     private Procu360.Infraestructura.Tareas.ResultadoTareas? _resultado;
     private bool _exito;
@@ -133,10 +185,9 @@ else
 
     private async Task CargarAsync() => _resultado = await Servicio.ListarAsync(_filtro, 1);
 
-    private async Task CambiarFiltroAsync(ChangeEventArgs e)
+    private async Task CambiarFiltroAsync(Procu360.Infraestructura.Tareas.FiltroTareas filtro)
     {
-        _filtro = Enum.TryParse<Procu360.Infraestructura.Tareas.FiltroTareas>(e.Value?.ToString(), out var f)
-            ? f : Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes;
+        _filtro = filtro;
         await CargarAsync();
     }
 

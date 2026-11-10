@@ -1,0 +1,192 @@
+/* Línea de tiempo de la ficha: contenedor blanco, cada etapa en su subtarjeta, un círculo por etapa.
+   La etapa actual destella en ámbar. Variables de color en tema.css. */
+
+.cabecera-linea {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    margin-bottom: 22px;
+}
+
+.referencias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+    color: var(--p-texto-suave);
+}
+
+.referencias li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.muestra {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+}
+
+.muestra.actual { background: var(--p-ambar); }
+.muestra.cumplida { background: var(--p-verde); }
+.muestra.abierta { background: #FFFFFF; border-color: #64748B; }
+.muestra.suspendida { background: #FFFFFF; border-color: #CBD5E1; }
+
+.linea-tiempo {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 38px;
+    position: relative;
+}
+
+.linea-tiempo::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    top: 16px;
+    bottom: 16px;
+    width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(#CBD5E1, #E2E8F0);
+}
+
+.hito {
+    position: relative;
+    padding-bottom: 14px;
+    animation: tl-subir .6s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.hito:last-child { padding-bottom: 0; }
+.hito:nth-child(2) { animation-delay: .06s; }
+.hito:nth-child(3) { animation-delay: .12s; }
+.hito:nth-child(4) { animation-delay: .18s; }
+.hito:nth-child(5) { animation-delay: .24s; }
+.hito:nth-child(n+6) { animation-delay: .3s; }
+
+.tl-punto {
+    position: absolute;
+    left: -38px;
+    top: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 3px solid #64748B;
+    box-sizing: border-box;
+    z-index: 1;
+}
+
+.tl-cumplida .tl-punto { background: var(--p-verde); border-color: var(--p-verde); }
+.tl-suspendida .tl-punto { border-color: #CBD5E1; }
+
+.tl-actual .tl-punto {
+    background: var(--p-ambar);
+    border-color: var(--p-ambar);
+}
+
+/* Dos anillos desfasados: un destello continuo y suave. */
+.tl-actual .tl-punto::before,
+.tl-actual .tl-punto::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--p-ambar);
+    animation: tl-destello 2s cubic-bezier(.22, 1, .36, 1) infinite;
+}
+
+.tl-actual .tl-punto::after {
+    animation-delay: 1s;
+}
+
+.tl-contenido {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--p-borde);
+    border-radius: 14px;
+    background: #FFFFFF;
+    transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+
+.tl-contenido:hover {
+    border-color: #93C5FD;
+    transform: translateX(3px);
+    box-shadow: 0 10px 22px -16px rgba(15, 23, 42, .35);
+}
+
+.tl-actual .tl-contenido {
+    background: #FFFBEB;
+    border-color: #FCD34D;
+}
+
+.tl-suspendida .tl-contenido {
+    background: var(--p-superficie-suave);
+}
+
+.tl-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.tl-titulo strong {
+    font-size: 15px;
+    color: var(--p-tinta);
+}
+
+.tl-fecha {
+    font-size: 13px;
+    color: var(--p-texto-suave);
+    font-variant-numeric: tabular-nums;
+}
+
+.tl-etiqueta-actual {
+    background: #B45309;
+    color: #FFFFFF;
+}
+
+.tl-detalle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--p-texto-suave);
+}
+
+.tl-observaciones {
+    font-size: 13.5px;
+    color: var(--p-texto-2);
+}
+
+.tl-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+@keyframes tl-destello {
+    0% { transform: scale(1); opacity: .85; }
+    100% { transform: scale(2.3); opacity: 0; }
+}
+
+@keyframes tl-subir {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hito { animation: none; }
+    .tl-actual .tl-punto::before { animation: none; transform: scale(1.5); opacity: .45; }
+    .tl-actual .tl-punto::after { animation: none; opacity: 0; }
+}

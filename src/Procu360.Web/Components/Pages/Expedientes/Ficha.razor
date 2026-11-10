@@ -1,93 +1,163 @@
 @page "/expedientes/{Id:long}"
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "expedientes.consultar")]
 @inject Procu360.Infraestructura.Expedientes.FichaExpedienteServicio Servicio
+@inject Procu360.Infraestructura.Expedientes.ServicioEdicionExpediente Edicion
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject ServicioPermisos Autorizacion
 
 <PageTitle>Expediente @(_encabezado?.NroOrden.ToString("D5") ?? "") · Procu360</PageTitle>
 
 @if (!_visible)
 {
-    <div class="alert alert-secondary" role="status">No encontramos ese expediente en tu alcance.</div>
-    <a href="/expedientes">Volver a expedientes</a>
+    @if (_idCargado is not null)
+    {
+        <div class="alert alert-secondary" role="status">No encontramos ese expediente en tu alcance.</div>
+        <a href="/expedientes">Volver a expedientes</a>
+    }
 }
 else if (_encabezado is not null)
 {
-    <div class="mb-3">
-        <a href="/expedientes" class="small">← Volver a resultados</a>
-        <div class="d-flex flex-wrap align-items-baseline gap-2 mt-1">
-            <h1 class="h3 mb-0">Expediente @_encabezado.NroOrden.ToString("D5")</h1>
-            @if (_encabezado.NroExpedienteJudicial is not null)
+    <a href="/expedientes" class="volver"><Icono Nombre="volver" Tamano="16" Grosor="2" /> Volver a resultados</a>
+
+    <section class="tarjeta cabecera-expediente">
+        <div style="min-width: 0; flex: 1 1 520px">
+            <div class="titulo-expediente">
+                <h1>Expediente <span class="numero">@_encabezado.NroOrden.ToString("D5")</span></h1>
+                @if (_encabezado.NroExpedienteJudicial is not null)
+                {
+                    <span class="pastilla gris">Judicial @_encabezado.NroExpedienteJudicial</span>
+                }
+                @if (_encabezado.Instancia is not null)
+                {
+                    <span class="pastilla azul">@_encabezado.Instancia</span>
+                }
+                @if (_encabezado.EtapaActual is not null)
+                {
+                    <span class="pastilla ambar">Etapa: @_encabezado.EtapaActual</span>
+                }
+                @if (_encabezado.Anulado)
+                {
+                    <span class="pastilla roja">Dado de baja</span>
+                }
+            </div>
+            <p class="caratula">@(_encabezado.Caratula ?? "Sin carátula")</p>
+            @if (_encabezado.Recaratulacion is not null)
             {
-                <span class="badge text-bg-light border">Judicial: @_encabezado.NroExpedienteJudicial</span>
+                <p class="small text-muted mb-1">Recaratulado: @_encabezado.Recaratulacion</p>
             }
-            @if (_encabezado.Instancia is not null)
-            {
-                <span class="badge text-bg-primary">@_encabezado.Instancia</span>
-            }
-            @if (_encabezado.EtapaActual is not null)
-            {
-                <span class="badge text-bg-secondary">Etapa: @_encabezado.EtapaActual</span>
-            }
+            <div class="meta">
+                @if (!string.IsNullOrEmpty(_encabezado.Juzgado))
+                {
+                    <span><Icono Nombre="balanza" Tamano="16" /> @_encabezado.Juzgado</span>
+                }
+                @if (!string.IsNullOrEmpty(_encabezado.Procurador))
+                {
+                    <span><Icono Nombre="usuarios" Tamano="16" /> @_encabezado.Procurador</span>
+                }
+            </div>
         </div>
-        <div class="fw-semibold mt-1">@(_encabezado.Caratula ?? "Sin carátula")</div>
-        @if (_encabezado.Recaratulacion is not null)
+        @if (_puedeEditar && !_encabezado.Anulado)
         {
-            <div class="small text-muted">Recaratulada: @_encabezado.Recaratulacion</div>
+            <a class="btn btn-primary d-inline-flex align-items-center gap-2" href="@($"/expedientes/{Id}?tab=etapas")">
+                <Icono Nombre="mas" Tamano="16" Grosor="2.2" /> Registrar etapa
+            </a>
         }
-        <div class="small text-muted">
-            @string.Join(" · ", new[] { _encabezado.Juzgado, _encabezado.Procurador }.Where(x => !string.IsNullOrEmpty(x)))
-        </div>
-    </div>
+    </section>
 
     @if (_encabezado.Anulado)
     {
         <div class="alert alert-warning" role="alert">Expediente dado de baja. @_encabezado.MotivoAnulacion</div>
     }
 
-    <ul class="nav nav-tabs mb-3">
-        @foreach (var (clave, nombre) in Pestanas)
+    <nav class="pestanas" aria-label="Secciones del expediente">
+        @foreach (var (clave, nombre, icono) in Pestanas)
         {
-            <li class="nav-item">
-                <a class="nav-link @(Pestana == clave ? "active" : "")" href="@($"/expedientes/{Id}?tab={clave}")"
-                   aria-current="@(Pestana == clave ? "page" : null)">@nombre</a>
-            </li>
+            <a class="pestana @(Pestana == clave ? "activa" : "")" href="@($"/expedientes/{Id}?tab={clave}")"
+               aria-current="@(Pestana == clave ? "page" : null)">
+                <Icono Nombre="@icono" Tamano="18" />@nombre
+            </a>
         }
-    </ul>
+    </nav>
 
     @switch (Pestana)
     {
         case "personas":
-            <table class="table table-sm">
-                <thead><tr><th>Persona</th><th>Rol</th><th>Documento</th><th>CUIT</th><th>Domicilio principal</th></tr></thead>
-                <tbody>
-                    @foreach (var p in _personas!)
-                    {
-                        <tr><td>@p.Nombre</td><td>@p.Rol</td><td>@(p.Documento ?? "—")</td><td>@(p.Cuit ?? "—")</td><td>@(p.Domicilio ?? "—")</td></tr>
-                    }
-                </tbody>
-            </table>
+            <section class="tarjeta" aria-labelledby="titulo-personas">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul"><Icono Nombre="usuarios" Tamano="18" Grosor="2" /></span>
+                    <h2 id="titulo-personas">Personas del expediente</h2>
+                </div>
+                @if (_personas is null)
+                {
+                    <p class="text-muted mb-0">Cargando…</p>
+                }
+                else if (_personas.Count == 0)
+                {
+                    <p class="text-muted mb-0">No hay personas cargadas.</p>
+                }
+                else
+                {
+                    <div class="tabla-contenedor">
+                        <table class="table">
+                            <thead><tr><th>Persona</th><th>Rol</th><th>Documento</th><th>CUIT</th><th>Domicilio principal</th></tr></thead>
+                            <tbody>
+                                @foreach (var p in _personas)
+                                {
+                                    <tr>
+                                        <td class="principal-celda">@p.Nombre</td>
+                                        <td><span class="pastilla @(p.Rol.Contains("emandad") ? "azul" : "gris")">@p.Rol</span></td>
+                                        <td class="numero">@(p.Documento ?? "—")</td>
+                                        <td class="numero">@(p.Cuit ?? "—")</td>
+                                        <td>@(p.Domicilio ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
             break;
 
         case "periodos":
-            @if (_periodos!.Count == 0)
-            {
-                <p class="text-muted">No hay períodos adeudados cargados.</p>
-            }
-            else
-            {
-                <table class="table table-sm">
-                    <thead><tr><th>Año</th><th>Cuota</th><th>Concepto</th><th>Vencimiento</th><th class="text-end">Tributo</th><th class="text-end">Recargo</th></tr></thead>
-                    <tbody>
-                        @foreach (var p in _periodos!)
-                        {
-                            <tr>
-                                <td>@p.Anio</td><td>@(p.Cuota ?? "—")</td><td>@(p.Concepto ?? "—")</td>
-                                <td>@(p.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                <td class="text-end">@Importe(p.Tributo)</td><td class="text-end">@Importe(p.Recargo)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
+            <section class="tarjeta" aria-labelledby="titulo-periodos">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-ambar"><Icono Nombre="calendario" Tamano="18" Grosor="2" /></span>
+                    <h2 id="titulo-periodos">Períodos adeudados</h2>
+                </div>
+                @if (_periodos is null)
+                {
+                    <p class="text-muted mb-0">Cargando…</p>
+                }
+                else if (_periodos.Count == 0)
+                {
+                    <p class="text-muted mb-0">No hay períodos adeudados cargados.</p>
+                }
+                else
+                {
+                    <div class="tabla-contenedor">
+                        <table class="table">
+                            <thead><tr><th>Año</th><th>Cuota</th><th>Concepto</th><th>Vencimiento</th><th class="text-end">Tributo</th><th class="text-end">Recargo</th></tr></thead>
+                            <tbody>
+                                @foreach (var p in _periodos)
+                                {
+                                    <tr>
+                                        <td class="nro">@p.Anio</td><td>@(p.Cuota ?? "—")</td><td>@(p.Concepto ?? "—")</td>
+                                        <td class="numero">@(p.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        <td class="text-end">@Importe(p.Tributo)</td><td class="text-end">@Importe(p.Recargo)</td>
+                                    </tr>
+                                }
+                                <tr>
+                                    <td colspan="4" class="principal-celda">Total</td>
+                                    <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Tributo))</td>
+                                    <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Recargo))</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
             break;
 
         case "etapas":
@@ -95,72 +165,110 @@ else if (_encabezado is not null)
             break;
 
         case "tareas":
-            @if (_tareas!.Count == 0)
-            {
-                <p class="text-muted">No hay tareas para este expediente.</p>
-            }
-            else
-            {
-                <table class="table table-sm">
-                    <thead><tr><th>Tarea</th><th>Vence</th><th>Responsable</th><th>Estado</th></tr></thead>
-                    <tbody>
-                        @foreach (var t in _tareas!)
-                        {
-                            <tr>
-                                <td>@t.Titulo</td><td>@(t.Vence?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                <td>@(t.Responsable ?? "—")</td><td>@NombreEstadoTarea(t.Estado)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
+            <section class="tarjeta" aria-labelledby="titulo-tareas">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-verde"><Icono Nombre="tareas" Tamano="18" Grosor="2" /></span>
+                    <h2 id="titulo-tareas">Tareas del expediente</h2>
+                    <a href="/tareas" class="small fw-semibold">Ir a Tareas</a>
+                </div>
+                @if (_tareas is null)
+                {
+                    <p class="text-muted mb-0">Cargando…</p>
+                }
+                else if (_tareas.Count == 0)
+                {
+                    <p class="text-muted mb-0">No hay tareas para este expediente.</p>
+                }
+                else
+                {
+                    <div class="tabla-contenedor">
+                        <table class="table">
+                            <thead><tr><th>Tarea</th><th>Vence</th><th>Responsable</th><th>Estado</th></tr></thead>
+                            <tbody>
+                                @foreach (var t in _tareas)
+                                {
+                                    <tr>
+                                        <td class="principal-celda">@t.Titulo</td>
+                                        <td class="numero">@(t.Vence?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        <td>@(t.Responsable ?? "—")</td>
+                                        <td><span class="pastilla @ColorEstadoTarea(t.Estado)">@NombreEstadoTarea(t.Estado)</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
             break;
 
         default:
-            @if (_resumen is not null)
+            @if (_resumen is null)
             {
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="card h-100"><div class="card-body">
-                            <h2 class="h6 text-uppercase text-muted">Demandado</h2>
-                            <div class="fw-semibold">@(_resumen.Demandado ?? "Sin demandado cargado")</div>
-                            <div class="small text-muted">@_resumen.Codemandados codemandado(s)</div>
-                            <h2 class="h6 text-uppercase text-muted mt-3">Comitente y concepto</h2>
-                            <div>@(_resumen.Comitente ?? "—")</div>
-                            <div class="small text-muted">@(_resumen.Concepto ?? "—")</div>
-                        </div></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card h-100"><div class="card-body">
-                            <h2 class="h6 text-uppercase text-muted">Objeto de la deuda</h2>
-                            <dl class="row small mb-0">
-                                <dt class="col-5">Cuenta / resolución</dt><dd class="col-7">@(_resumen.NroCuenta ?? "—")</dd>
-                                <dt class="col-5">Nomenclatura</dt><dd class="col-7">@(_resumen.Nomenclatura ?? "—")</dd>
-                                <dt class="col-5">Dominio</dt><dd class="col-7">@(_resumen.Dominio ?? "—")</dd>
-                                <dt class="col-5">Designación</dt><dd class="col-7">@(_resumen.Designacion ?? "—")</dd>
-                                <dt class="col-5">Matrícula RPI</dt><dd class="col-7">@(_resumen.MatriculaRpi ?? "—")</dd>
-                            </dl>
-                        </div></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card h-100"><div class="card-body">
-                            <h2 class="h6 text-uppercase text-muted">Título de deuda</h2>
-                            <dl class="row small mb-0">
-                                <dt class="col-5">Fecha del título</dt><dd class="col-7">@(_resumen.FechaTitulo?.ToString("dd/MM/yyyy") ?? "—")</dd>
-                                <dt class="col-5">Monto del título</dt><dd class="col-7">@(_resumen.MontoTitulo is decimal t ? Importe(t) : "—")</dd>
-                                <dt class="col-5">Capital</dt><dd class="col-7">@(_resumen.MontoCapital is decimal k ? Importe(k) : "—")</dd>
-                                <dt class="col-5">Liquidación</dt><dd class="col-7">@(_resumen.NroLiquidacion ?? "—")</dd>
-                            </dl>
-                        </div></div>
-                    </div>
-                    @if (!string.IsNullOrWhiteSpace(_resumen.Observaciones))
-                    {
-                        <div class="col-md-6">
-                            <div class="card h-100"><div class="card-body">
-                                <h2 class="h6 text-uppercase text-muted">Observaciones</h2>
-                                <div class="small" style="white-space: pre-line">@_resumen.Observaciones</div>
-                            </div></div>
+                <p class="text-muted">Cargando…</p>
+            }
+            else
+            {
+                <div class="grilla-ficha">
+                    <section class="tarjeta acento" aria-labelledby="titulo-demandado">
+                        <div class="cabecera-seccion">
+                            <span class="icono-tono tono-azul"><Icono Nombre="usuarios" Tamano="18" Grosor="2" /></span>
+                            <h2 id="titulo-demandado">Demandado</h2>
+                            @if (_resumen.Codemandados > 0)
+                            {
+                                <span class="pastilla azul">+@_resumen.Codemandados codemandado(s)</span>
+                            }
                         </div>
+                        <div class="persona-principal">
+                            <span class="avatar-grande" aria-hidden="true">@Iniciales(_resumen.Demandado)</span>
+                            <span class="nombre">@(_resumen.Demandado ?? "Sin demandado cargado")</span>
+                        </div>
+                        <dl class="datos">
+                            <dt>Comitente</dt><dd>@(_resumen.Comitente ?? "—")</dd>
+                            <dt>Concepto</dt><dd>@(_resumen.Concepto ?? "—")</dd>
+                        </dl>
+                    </section>
+
+                    <section class="tarjeta destacada" aria-labelledby="titulo-titulo">
+                        <div class="cabecera-seccion">
+                            <span class="icono-tono"><Icono Nombre="moneda" Tamano="18" Grosor="2" /></span>
+                            <h2 id="titulo-titulo">Título de deuda</h2>
+                        </div>
+                        <div class="cifra-rotulo">Monto del título</div>
+                        <div class="cifra mb-3">@(_resumen.MontoTitulo is decimal t ? Importe(t) : "—")</div>
+                        <dl class="datos">
+                            <dt>Capital</dt><dd>@(_resumen.MontoCapital is decimal k ? Importe(k) : "—")</dd>
+                            <dt>Fecha del título</dt><dd>@(_resumen.FechaTitulo?.ToString("dd/MM/yyyy") ?? "—")</dd>
+                            <dt>Liquidación</dt><dd>@(_resumen.NroLiquidacion ?? "—")</dd>
+                        </dl>
+                    </section>
+
+                    <section class="tarjeta" aria-labelledby="titulo-objeto">
+                        <div class="cabecera-seccion">
+                            <span class="icono-tono tono-celeste"><Icono Nombre="ubicacion" Tamano="18" Grosor="2" /></span>
+                            <h2 id="titulo-objeto">Objeto de la deuda</h2>
+                        </div>
+                        <dl class="datos">
+                            <dt>Cuenta / resolución</dt><dd>@(_resumen.NroCuenta ?? "—")</dd>
+                            <dt>Nomenclatura</dt><dd>@(_resumen.Nomenclatura ?? "—")</dd>
+                            <dt>Dominio</dt><dd>@(_resumen.Dominio ?? "—")</dd>
+                            <dt>Designación</dt><dd>@(_resumen.Designacion ?? "—")</dd>
+                            <dt>Matrícula RPI</dt><dd>@(_resumen.MatriculaRpi ?? "—")</dd>
+                        </dl>
+                    </section>
+
+                    @if (_juicio is not null)
+                    {
+                        <EditarJuicio Datos="_juicio" Puede="_puedeEditar" Juzgados="_juzgados" Guardar="GuardarJuicioAsync" />
+                    }
+                    @if (_profesionales is not null)
+                    {
+                        <EditarProfesionales Datos="_profesionales" Puede="_puedeEditar"
+                                             Procuradores="_procuradores" Patrocinantes="_patrocinantes" AbogadosInterior="_abogadosInterior"
+                                             Guardar="GuardarProfesionalesAsync" />
+                    }
+                    @if (_observaciones is not null)
+                    {
+                        <EditarObservaciones Datos="_observaciones" Puede="_puedeEditar" Guardar="GuardarObservacionesAsync" />
                     }
                 </div>
             }
@@ -169,10 +277,10 @@ else if (_encabezado is not null)
 }
 
 @code {
-    private static readonly (string Clave, string Nombre)[] Pestanas =
+    private static readonly (string Clave, string Nombre, string Icono)[] Pestanas =
     [
-        ("resumen", "Resumen"), ("personas", "Personas"), ("periodos", "Períodos"),
-        ("etapas", "Etapas"), ("tareas", "Tareas")
+        ("resumen", "Resumen", "resumen"), ("personas", "Personas", "usuarios"), ("periodos", "Períodos", "calendario"),
+        ("etapas", "Etapas", "linea"), ("tareas", "Tareas", "tareas")
     ];
 
     private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
@@ -181,41 +289,136 @@ else if (_encabezado is not null)
     [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
 
     private bool _visible;
+    private long? _idCargado;
+    private string? _pestanaCargada;
     private Procu360.Infraestructura.Expedientes.EncabezadoExpediente? _encabezado;
     private Procu360.Infraestructura.Expedientes.ResumenExpediente? _resumen;
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.PersonaExpediente>? _personas;
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.PeriodoExpediente>? _periodos;
-    private IReadOnlyList<Procu360.Infraestructura.Expedientes.EtapaHistorial>? _etapas;
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.TareaExpediente>? _tareas;
+    private Procu360.Infraestructura.Expedientes.DatosJuicio? _juicio;
+    private Procu360.Infraestructura.Expedientes.DatosObservaciones? _observaciones;
+    private Procu360.Infraestructura.Expedientes.DatosProfesionales? _profesionales;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _juzgados = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _procuradores = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _patrocinantes = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _abogadosInterior = [];
+    private bool _puedeEditar;
 
     private string Pestana => Pestanas.Any(p => p.Clave == Tab) ? Tab! : "resumen";
 
     protected override async Task OnInitializedAsync()
     {
-        _visible = await Servicio.VisibleAsync(Id);
-        if (!_visible) return;
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
+        _puedeEditar = await Autorizacion.TieneAsync("expedientes.editar");
+    }
 
-        _encabezado = await Servicio.EncabezadoAsync(Id);
+    /// <summary>
+    /// Se ejecuta también cuando cambia ?tab= sin salir de la página: Blazor reutiliza el componente y no
+    /// vuelve a llamar a OnInitializedAsync, así que cada pestaña carga sus datos acá.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_idCargado != Id)
+        {
+            _visible = await Servicio.VisibleAsync(Id);
+            _encabezado = _visible ? await Servicio.EncabezadoAsync(Id) : null;
+            _idCargado = Id;
+            _pestanaCargada = null;
+        }
+        if (!_visible || _pestanaCargada == Pestana) return;
+
         switch (Pestana)
         {
             case "personas": _personas = await Servicio.PersonasAsync(Id); break;
             case "periodos": _periodos = await Servicio.PeriodosAsync(Id); break;
             case "etapas": break; // la pestaña carga sus datos en EtapasExpediente
             case "tareas": _tareas = await Servicio.TareasAsync(Id); break;
-            default: _resumen = await Servicio.ResumenAsync(Id); break;
+            default: await CargarResumenAsync(); break;
         }
+        _pestanaCargada = Pestana;
+    }
+
+    /// <summary>Consultas en secuencia: los componentes de edición no consultan la base por su cuenta.</summary>
+    private async Task CargarResumenAsync()
+    {
+        _resumen = await Servicio.ResumenAsync(Id);
+        _juicio = await Edicion.JuicioAsync(Id);
+        _observaciones = await Edicion.ObservacionesAsync(Id);
+        _profesionales = await Edicion.ProfesionalesAsync(Id);
+        if (_puedeEditar)
+        {
+            _juzgados = await Edicion.JuzgadosAsync();
+            _procuradores = await Edicion.ProfesionalesDeRolAsync("procurador");
+            _patrocinantes = await Edicion.ProfesionalesDeRolAsync("patrocinante");
+            _abogadosInterior = await Edicion.ProfesionalesDeRolAsync("abogadoInterior");
+        }
+    }
+
+    private async Task<string?> GuardarProfesionalesAsync(Procu360.Infraestructura.Expedientes.DatosProfesionales datos)
+    {
+        var r = await Edicion.GuardarProfesionalesAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    private async Task<string?> GuardarJuicioAsync(Procu360.Infraestructura.Expedientes.DatosJuicio datos)
+    {
+        var r = await Edicion.GuardarJuicioAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    private async Task<string?> GuardarObservacionesAsync(Procu360.Infraestructura.Expedientes.DatosObservaciones datos)
+    {
+        var r = await Edicion.GuardarObservacionesAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    /// <summary>
+    /// Vuelve a leer la ficha después de guardar una sección. Los guardados llegan por un delegado (no por un
+    /// EventCallback), así que hay que pedir el redibujado: si no, el encabezado y las secciones quedan con
+    /// los datos viejos hasta el próximo evento.
+    /// </summary>
+    private async Task RecargarAsync()
+    {
+        _encabezado = await Servicio.EncabezadoAsync(Id);
+        await CargarResumenAsync();
+        StateHasChanged();
     }
 
     private static string Importe(decimal valor) => valor.ToString("C2", Argentina);
 
-    private static string NombreEstadoEtapa(byte estado) => estado switch
+    /// <summary>
+    /// Dos iniciales para el avatar. Solo cuenta palabras que empiezan con letra: un nombre vacío, con solo
+    /// signos (", ") o una razón social con siglas ("S.A.") no debe romper la ficha.
+    /// </summary>
+    private static string Iniciales(string? nombre)
     {
-        1 => "Alta", 2 => "Cumplimentada", 3 => "Suspendida", 4 => "Baja", _ => "—"
-    };
+        var partes = (nombre ?? string.Empty)
+            .Split([' ', ',', '.', '-', '/'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(p => char.IsLetter(p[0]))
+            .ToArray();
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => char.ToUpperInvariant(partes[0][0]).ToString(),
+            _ => string.Concat(char.ToUpperInvariant(partes[0][0]), char.ToUpperInvariant(partes[1][0]))
+        };
+    }
 
     private static string NombreEstadoTarea(byte estado) => estado switch
     {
         1 => "Pendiente", 2 => "Cumplida", 3 => "Archivada", 4 => "Anulada", _ => "—"
     };
-}
 
+    private static string ColorEstadoTarea(byte estado) => estado switch
+    {
+        1 => "ambar", 2 => "verde", _ => "gris"
+    };
+}

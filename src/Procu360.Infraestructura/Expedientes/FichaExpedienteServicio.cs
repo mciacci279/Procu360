@@ -74,7 +74,10 @@ public sealed class FichaExpedienteServicio(Procu360DbContext db, AlcanceExpedie
 
         var demandado = await db.ExpedientePersona.Where(ep => ep.ExpedienteId == id && ep.Rol == 1)
             .OrderBy(ep => ep.Posicion)
-            .Select(ep => ep.Persona.Apellido + ", " + ep.Persona.Nombre).FirstOrDefaultAsync(ct);
+            // Empresas: razón social. Personas: "Apellido, Nombre" (sin coma si falta el nombre).
+            .Select(ep => ep.Persona.RazonSocial
+                          ?? ((ep.Persona.Apellido ?? "") + (ep.Persona.Nombre != null ? ", " + ep.Persona.Nombre : "")))
+            .FirstOrDefaultAsync(ct);
         var codemandados = await db.ExpedientePersona.CountAsync(ep => ep.ExpedienteId == id && ep.Rol == 2, ct);
         var comitente = e.ComitenteId is int c ? await db.Comitente.Where(x => x.Id == c).Select(x => x.Nombre).FirstOrDefaultAsync(ct) : null;
         var concepto = e.ConceptoDeudaId is int k ? await db.ConceptoDeuda.Where(x => x.Id == k).Select(x => x.Nombre).FirstOrDefaultAsync(ct) : null;

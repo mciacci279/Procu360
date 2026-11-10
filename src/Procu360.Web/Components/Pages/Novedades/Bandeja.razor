@@ -8,70 +8,89 @@
 
 <PageTitle>Novedades · Procu360</PageTitle>
 
-<h1 class="h3 mb-3">Novedades judiciales</h1>
+<div class="encabezado-pagina">
+    <div>
+        <h1>Novedades judiciales</h1>
+        <p class="bajada">Revisalas, vinculalas a su expediente y convertilas en tareas.</p>
+    </div>
+</div>
 
-<ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><a class="nav-link @(_pestana == "sin-revisar" ? "active" : "")" href="/novedades?p=sin-revisar">Sin revisar</a></li>
-    <li class="nav-item"><a class="nav-link @(_pestana == "revisadas" ? "active" : "")" href="/novedades?p=revisadas">Revisadas</a></li>
-    <li class="nav-item"><a class="nav-link @(_pestana == "sin-vincular" ? "active" : "")" href="/novedades?p=sin-vincular">Sin vincular</a></li>
-</ul>
+<nav class="pestanas" aria-label="Bandejas de novedades">
+    <a class="pestana @(_pestana == "sin-revisar" ? "activa" : "")" href="/novedades?p=sin-revisar"
+       aria-current="@(_pestana == "sin-revisar" ? "page" : null)"><Icono Nombre="novedades" Tamano="18" />Sin revisar</a>
+    <a class="pestana @(_pestana == "revisadas" ? "activa" : "")" href="/novedades?p=revisadas"
+       aria-current="@(_pestana == "revisadas" ? "page" : null)"><Icono Nombre="tareas" Tamano="18" />Revisadas</a>
+    <a class="pestana @(_pestana == "sin-vincular" ? "activa" : "")" href="/novedades?p=sin-vincular"
+       aria-current="@(_pestana == "sin-vincular" ? "page" : null)"><Icono Nombre="expedientes" Tamano="18" />Sin vincular</a>
+</nav>
 
 @if (_mensaje is not null)
 {
     <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
 }
 
-@if (!_cargado)
+@if (_resultado is null)
 {
-    <p>Cargando…</p>
+    <p class="text-muted">Cargando…</p>
 }
-else if (_resultado!.Total == 0)
+else if (_resultado.Total == 0)
 {
-    <p class="text-muted">No hay novedades en esta bandeja.</p>
+    <div class="tarjeta text-center py-5">
+        <span class="icono-tono tono-azul mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="novedades" Tamano="24" Grosor="2" /></span>
+        <p class="mb-0 fw-semibold">No hay novedades en esta bandeja.</p>
+    </div>
 }
 else
 {
-    <p class="text-muted">@_resultado.Total novedades · página @_resultado.Pagina de @_resultado.Paginas</p>
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
-            <thead><tr><th>Fecha</th><th>Novedad</th><th>Expediente</th><th>Acciones</th></tr></thead>
+    <div class="resumen-resultados">
+        <span><strong>@_resultado.Total</strong> novedades</span>
+        <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
+    </div>
+    <div class="tabla-contenedor">
+        <table class="table">
+            <thead><tr><th>Fecha</th><th>Novedad</th><th>Expediente</th><th class="text-end">Acciones</th></tr></thead>
             <tbody>
                 @foreach (var f in _resultado.Filas)
                 {
                     <tr>
-                        <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
-                        <td style="max-width: 420px">@(f.Texto.Length > 200 ? f.Texto[..200] + "…" : f.Texto)</td>
+                        <td class="numero text-nowrap">@f.Fecha.ToString("dd/MM/yyyy")</td>
+                        <td style="max-width: 460px">
+                            <span class="principal-celda">@(f.Texto.Length > 200 ? f.Texto[..200] + "…" : f.Texto)</span>
+                            @if (!f.Leida) { <span class="secundario" style="color: var(--p-azul); font-weight: 600">Sin revisar</span> }
+                        </td>
                         <td>
                             @if (f.NroOrden is int n)
                             {
-                                <a href="/expedientes/@f.ExpedienteId">@n.ToString("D5")</a>
+                                <a class="nro" href="/expedientes/@f.ExpedienteId">@n.ToString("D5")</a>
                             }
                             else
                             {
-                                <span class="text-muted">Sin vincular</span>
+                                <span class="pastilla ambar">Sin vincular</span>
                             }
                         </td>
-                        <td class="text-nowrap">
-                            @if (!f.Leida)
-                            {
-                                <button class="btn btn-sm btn-outline-success" @onclick="() => MarcarAsync(f.Id)">Marcar revisada</button>
-                            }
-                            @if (f.ExpedienteId is null)
-                            {
-                                <div class="input-group input-group-sm mt-1">
-                                    <input class="form-control" placeholder="Nro orden"
-                                           value="@_nroPorNovedad.GetValueOrDefault(f.Id)"
-                                           @onchange="e => _nroPorNovedad[f.Id] = e.Value?.ToString() ?? string.Empty" />
-                                    <button class="btn btn-outline-primary" @onclick="() => VincularAsync(f.Id)">Vincular</button>
-                                </div>
-                            }
-                            else if (!f.TieneTarea)
-                            {
-                                <div class="input-group input-group-sm mt-1">
-                                    <input class="form-control" type="date" @bind="_venceFecha" />
-                                    <button class="btn btn-outline-primary" @onclick="() => CrearTareaAsync(f.Id)">Crear tarea</button>
-                                </div>
-                            }
+                        <td class="text-end">
+                            <div class="d-inline-flex flex-column align-items-end gap-2">
+                                @if (!f.Leida)
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => MarcarAsync(f.Id)">Marcar revisada</button>
+                                }
+                                @if (f.ExpedienteId is null)
+                                {
+                                    <div class="input-group input-group-sm" style="width: 230px">
+                                        <input class="form-control" placeholder="Nro de orden" aria-label="Nro de orden para vincular"
+                                               value="@_nroPorNovedad.GetValueOrDefault(f.Id)"
+                                               @onchange="e => _nroPorNovedad[f.Id] = e.Value?.ToString() ?? string.Empty" />
+                                        <button class="btn btn-primary" @onclick="() => VincularAsync(f.Id)">Vincular</button>
+                                    </div>
+                                }
+                                else if (!f.TieneTarea)
+                                {
+                                    <div class="input-group input-group-sm" style="width: 260px">
+                                        <input class="form-control" type="date" aria-label="Vencimiento de la tarea" @bind="_venceFecha" />
+                                        <button class="btn btn-primary" @onclick="() => CrearTareaAsync(f.Id)">Crear tarea</button>
+                                    </div>
+                                }
+                            </div>
                         </td>
                     </tr>
                 }
@@ -81,16 +100,19 @@ else
 
     @if (_resultado.Paginas > 1)
     {
-        <nav><ul class="pagination">
-            @if (_resultado.Pagina > 1)
-            {
-                <li class="page-item"><a class="page-link" href="/novedades?p=@PestanaQuery&pagina=@(_resultado.Pagina - 1)">Anterior</a></li>
-            }
-            @if (_resultado.Pagina < _resultado.Paginas)
-            {
-                <li class="page-item"><a class="page-link" href="/novedades?p=@PestanaQuery&pagina=@(_resultado.Pagina + 1)">Siguiente</a></li>
-            }
-        </ul></nav>
+        <nav aria-label="Paginación">
+            <ul class="pagination">
+                @if (_resultado.Pagina > 1)
+                {
+                    <li class="page-item"><a class="page-link" href="/novedades?p=@_pestana&pagina=@(_resultado.Pagina - 1)">← Anterior</a></li>
+                }
+                <li class="page-item disabled"><span class="page-link">Página @_resultado.Pagina de @_resultado.Paginas</span></li>
+                @if (_resultado.Pagina < _resultado.Paginas)
+                {
+                    <li class="page-item"><a class="page-link" href="/novedades?p=@_pestana&pagina=@(_resultado.Pagina + 1)">Siguiente →</a></li>
+                }
+            </ul>
+        </nav>
     }
 }
 
@@ -98,15 +120,14 @@ else
     [SupplyParameterFromQuery(Name = "p")] public string? P { get; set; }
     [SupplyParameterFromQuery(Name = "pagina")] public int? Pagina { get; set; }
 
-    private bool _cargado;
     private bool _exito;
     private string? _mensaje;
+    private string? _cargada;
     private Procu360.Infraestructura.Novedades.ResultadoNovedades? _resultado;
     private readonly Dictionary<long, string> _nroPorNovedad = new();
     private DateOnly _venceFecha = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().AddDays(7);
 
     private string _pestana => P is "revisadas" or "sin-vincular" ? P : "sin-revisar";
-    private string PestanaQuery => _pestana;
 
     private static Procu360.Infraestructura.Novedades.PestanaNovedades Pestana(string p) => p switch
     {
@@ -117,17 +138,26 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarAsync();
-    }
-
-    private async Task CargarAsync()
-    {
         // Contexto del circuito: el middleware solo corre en la primera request.
         var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
         Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
-        _resultado = await Novedades.ListarAsync(Pestana(_pestana), Pagina ?? 1);
-        _cargado = true;
     }
+
+    /// <summary>
+    /// Cambiar de bandeja o de página solo cambia la query (?p=, ?pagina=): Blazor reutiliza el componente,
+    /// así que la carga va acá y no en OnInitializedAsync.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var clave = $"{_pestana}|{Pagina ?? 1}";
+        if (clave == _cargada) return;
+        if (_cargada is not null) _mensaje = null;
+        await CargarAsync();
+        _cargada = clave;
+    }
+
+    private async Task CargarAsync() =>
+        _resultado = await Novedades.ListarAsync(Pestana(_pestana), Pagina ?? 1);
 
     private async Task MarcarAsync(long id)
     {

@@ -14,44 +14,62 @@
     <div class="alert @(_exito ? "alert-success" : "alert-danger") py-2" role="status">@_mensaje</div>
 }
 
-@if (_filas is null)
-{
-    <p>Cargando…</p>
-}
-else if (_filas.Count == 0)
-{
-    <p class="text-muted">Todavía no hay etapas registradas.</p>
-}
-else
-{
-    <table class="table table-sm align-middle">
-        <thead><tr><th>Etapa</th><th>Inicio</th><th>Vence</th><th>Estado</th><th class="text-end">Monto</th><th></th></tr></thead>
-        <tbody>
+<section class="tarjeta" aria-labelledby="titulo-linea">
+    <div class="cabecera-linea">
+        <div class="cabecera-seccion mb-0">
+            <span class="icono-tono tono-ambar"><Icono Nombre="linea" Tamano="18" Grosor="2" /></span>
+            <h2 id="titulo-linea">Línea de tiempo</h2>
+        </div>
+        <ul class="referencias" aria-label="Referencias">
+            <li><span class="muestra actual" aria-hidden="true"></span>Etapa actual</li>
+            <li><span class="muestra cumplida" aria-hidden="true"></span>Cumplimentada</li>
+            <li><span class="muestra abierta" aria-hidden="true"></span>Abierta</li>
+            <li><span class="muestra suspendida" aria-hidden="true"></span>Suspendida</li>
+        </ul>
+    </div>
+
+    @if (_filas is null)
+    {
+        <p class="text-muted mb-0">Cargando…</p>
+    }
+    else if (_filas.Count == 0)
+    {
+        <p class="text-muted mb-0">Todavía no hay etapas registradas.</p>
+    }
+    else
+    {
+        <ol class="linea-tiempo">
             @foreach (var e in _filas)
             {
-                <tr>
-                    <td>
-                        @e.Nombre
-                        @if (e.EsDiligencia) { <span class="badge text-bg-info ms-1">Diligencia</span> }
-                        @if (e.Flujo == 2) { <span class="badge text-bg-secondary ms-1">Cautelar</span> }
-                        @if (!string.IsNullOrEmpty(e.Observaciones)) { <div class="small text-muted">@e.Observaciones</div> }
-                    </td>
-                    <td>@e.Inicio.ToString("dd/MM/yyyy")</td>
-                    <td>@(e.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
-                    <td>@NombreEstado(e.Estado)</td>
-                    <td class="text-end">@(e.Monto is decimal m ? m.ToString("C2", Argentina) : "—")</td>
-                    <td class="text-nowrap">
+                <li class="hito @ClaseEstado(e)">
+                    <span class="tl-punto" aria-hidden="true"></span>
+                    <div class="tl-contenido">
+                        <div class="tl-titulo">
+                            <span class="tl-fecha">@e.Inicio.ToString("dd/MM/yyyy")</span>
+                            <strong>@e.Nombre</strong>
+                            @if (e.EsActual) { <span class="pastilla tl-etiqueta-actual">Etapa actual</span> }
+                            @if (e.EsDiligencia) { <span class="pastilla cian">Diligencia</span> }
+                            @if (e.Flujo == 2) { <span class="pastilla gris">Cautelar</span> }
+                        </div>
+                        <div class="tl-detalle">
+                            @if (e.Vencimiento is DateOnly v) { <span>Vence @v.ToString("dd/MM/yyyy")</span><span aria-hidden="true">·</span> }
+                            <span>@NombreEstado(e.Estado)</span>
+                            @if (e.Monto is decimal m) { <span aria-hidden="true">·</span><span class="numero">@m.ToString("C2", Argentina)</span> }
+                        </div>
+                        @if (!string.IsNullOrEmpty(e.Observaciones)) { <div class="tl-observaciones">@e.Observaciones</div> }
                         @if (_puedeEditar && e.Estado == 1)
                         {
-                            <button class="btn btn-sm btn-outline-success" @onclick="() => CambiarAsync(e.Id, 2)">Cumplimentar</button>
-                            <button class="btn btn-sm btn-outline-warning" @onclick="() => CambiarAsync(e.Id, 3)">Suspender</button>
+                            <div class="tl-acciones">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => CambiarAsync(e.Id, 2)">Cumplimentar</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => CambiarAsync(e.Id, 3)">Suspender</button>
+                            </div>
                         }
-                    </td>
-                </tr>
+                    </div>
+                </li>
             }
-        </tbody>
-    </table>
-}
+        </ol>
+    }
+</section>
 
 @code {
     [Parameter, EditorRequired] public long ExpedienteId { get; set; }
@@ -89,6 +107,9 @@ else
         _mensaje = r.Exito ? "Estado de la etapa actualizado." : r.Error;
         await CargarAsync();
     }
+
+    private static string ClaseEstado(Procu360.Infraestructura.Etapas.FilaEtapa e) =>
+        e.EsActual ? "tl-actual" : e.Estado switch { 2 => "tl-cumplida", 3 => "tl-suspendida", _ => "tl-abierta" };
 
     private static string NombreEstado(byte estado) => estado switch
     {

@@ -10,8 +10,11 @@
 }
 else
 {
-    <div class="card card-body mb-3">
-        <h2 class="h6 text-uppercase text-muted">Registrar etapa o diligencia</h2>
+    <div class="tarjeta mb-4">
+        <div class="cabecera-seccion">
+            <span class="icono-tono tono-azul"><Icono Nombre="mas" Tamano="18" Grosor="2.2" /></span>
+            <h2>Registrar etapa o diligencia</h2>
+        </div>
         @if (_mensaje is not null)
         {
             <div class="alert @(_exito ? "alert-success" : "alert-danger") py-2" role="status">@_mensaje</div>
@@ -40,7 +43,9 @@ else
                 <input id="monto" class="form-control" @bind="_monto" />
             </div>
             <div class="col-md-1">
-                <button class="btn btn-primary w-100" @onclick="RegistrarAsync">+</button>
+                <button class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center" style="height: 38px" @onclick="RegistrarAsync" title="Registrar">
+                    <Icono Nombre="mas" Tamano="18" Grosor="2.4" /><span class="visually-hidden">Registrar</span>
+                </button>
             </div>
         </div>
         <div class="form-text">El vencimiento se calcula en días hábiles con feriados cuando la etapa lo indica.</div>

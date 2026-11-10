@@ -4,55 +4,68 @@
 
 <PageTitle>Expedientes · Procu360</PageTitle>
 
-<h1 class="h3 mb-3">Expedientes</h1>
+<div class="encabezado-pagina">
+    <div>
+        <h1>Expedientes</h1>
+        <p class="bajada">Buscá por cualquier dato del expediente y combiná filtros.</p>
+    </div>
+</div>
 
-<form method="get" action="/expedientes" class="card card-body mb-3">
-    <div class="row g-2 align-items-end">
-        <div class="col-lg-6">
-            <label class="form-label" for="q">Buscar</label>
-            <input id="q" name="q" class="form-control" value="@Q" autofocus
-                   placeholder="Nro de orden, expediente judicial, DNI/CUIT, liquidación, cuenta, dominio, nomenclatura o carátula" />
+<form method="get" action="/expedientes" class="tarjeta panel-filtros" role="search">
+    <div class="buscador">
+        <div class="campo">
+            <label for="q" class="visually-hidden">Buscar expediente</label>
+            <Icono Nombre="buscar" Tamano="18" Grosor="2" />
+            <input id="q" name="q" value="@Q" autofocus autocomplete="off"
+                   placeholder="Nro de orden, expediente judicial, DNI/CUIT, liquidación, cuenta, dominio o carátula" />
         </div>
-        <div class="col-md-4 col-lg-2">
-            <label class="form-label" for="comitente">Comitente</label>
-            <select id="comitente" name="comitente" class="form-select">
+        <button class="btn btn-primary" type="submit">Buscar</button>
+        @if (HayCriterio)
+        {
+            <a class="btn btn-outline-secondary d-inline-flex align-items-center" style="height: 50px; border-radius: 14px" href="/expedientes">Limpiar</a>
+        }
+    </div>
+    <p class="ayuda-filtros">Un solo campo: "641" encuentra "00641".</p>
+
+    <div class="filtros">
+        <span class="rotulo-filtros"><Icono Nombre="filtro" Tamano="15" Grosor="2" /> Filtros</span>
+        <label class="chip-select">
+            <span>Comitente:</span>
+            <select name="comitente">
                 <option value="">Todos</option>
                 @foreach (var c in _comitentes)
                 {
                     <option value="@c.Id" selected="@(Comitente == c.Id)">@c.Nombre</option>
                 }
             </select>
-        </div>
-        <div class="col-md-4 col-lg-2">
-            <label class="form-label" for="instancia">Instancia</label>
-            <select id="instancia" name="instancia" class="form-select">
+        </label>
+        <label class="chip-select">
+            <span>Instancia:</span>
+            <select name="instancia">
                 <option value="">Todas</option>
                 @foreach (var i in _instancias)
                 {
                     <option value="@i.Id" selected="@(Instancia == i.Id)">@i.Nombre</option>
                 }
             </select>
-        </div>
-        <div class="col-md-4 col-lg-2 d-flex gap-3">
-            <div class="form-check mt-4">
-                <input class="form-check-input" type="checkbox" id="sinMov" name="sinMov" value="true" checked="@(SinMov == true)" />
-                <label class="form-check-label" for="sinMov">Sin movimiento</label>
-            </div>
-            <div class="form-check mt-4">
-                <input class="form-check-input" type="checkbox" id="bajas" name="bajas" value="true" checked="@(Bajas == true)" />
-                <label class="form-check-label" for="bajas">Dados de baja</label>
-            </div>
-        </div>
-    </div>
-    <div class="mt-3">
-        <button class="btn btn-primary" type="submit">Buscar</button>
-        <a class="btn btn-outline-secondary" href="/expedientes">Limpiar</a>
+        </label>
+        <label class="chip-toggle">
+            <input type="checkbox" name="sinMov" value="true" checked="@(SinMov == true)" />
+            <span>Sin movimiento</span>
+        </label>
+        <label class="chip-toggle">
+            <input type="checkbox" name="bajas" value="true" checked="@(Bajas == true)" />
+            <span>Incluir dados de baja</span>
+        </label>
     </div>
 </form>
 
 @if (_resultado is null)
 {
-    <p class="text-muted">Escribí algo o elegí un filtro.</p>
+    <div class="tarjeta text-center py-5">
+        <span class="icono-tono tono-azul mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="buscar" Tamano="24" Grosor="2" /></span>
+        <p class="mb-0 fw-semibold">Escribí algo o elegí un filtro para ver expedientes.</p>
+    </div>
 }
 else if (_resultado.Total == 0)
 {
@@ -60,16 +73,17 @@ else if (_resultado.Total == 0)
 }
 else
 {
-    <p class="text-muted">@_resultado.Total expedientes · página @_resultado.Pagina de @_resultado.Paginas</p>
+    <div class="resumen-resultados">
+        <span><strong>@_resultado.Total</strong> expedientes encontrados</span>
+        <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
+    </div>
 
-    <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
+    <div class="tabla-contenedor">
+        <table class="table">
             <thead>
                 <tr>
                     <th>Nro orden</th>
-                    <th>Expediente judicial</th>
                     <th>Carátula</th>
-                    <th>Demandado</th>
                     <th>Concepto</th>
                     <th>Instancia</th>
                     <th>Última etapa</th>
@@ -79,15 +93,38 @@ else
             <tbody>
                 @foreach (var f in _resultado.Filas)
                 {
-                    <tr class="@(f.Anulado ? "text-muted text-decoration-line-through" : "")">
-                        <td><a href="/expedientes/@f.Id">@f.NroOrden.ToString("D5")</a></td>
-                        <td>@(f.NroExpedienteJudicial ?? "—")</td>
-                        <td>@(f.Caratula ?? "—")</td>
-                        <td>@(f.Demandado ?? "—")</td>
+                    <tr class="@(f.Anulado ? "text-muted" : "")">
+                        <td>
+                            <a class="nro" href="/expedientes/@f.Id">@f.NroOrden.ToString("D5")</a>
+                            @if (f.NroExpedienteJudicial is not null)
+                            {
+                                <span class="secundario">Judicial @f.NroExpedienteJudicial</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="principal-celda">@(f.Caratula ?? "—")</span>
+                            @if (f.Demandado is not null)
+                            {
+                                <span class="secundario">@f.Demandado</span>
+                            }
+                        </td>
                         <td>@(f.Concepto ?? "—")</td>
-                        <td>@(f.Instancia ?? "—")</td>
+                        <td>
+                            @if (f.Anulado)
+                            {
+                                <span class="pastilla roja">Dado de baja</span>
+                            }
+                            else if (f.Instancia is not null)
+                            {
+                                <span class="pastilla azul">@f.Instancia</span>
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </td>
                         <td>@(f.UltimaEtapa ?? "—")</td>
-                        <td>@(f.FechaUltimoMovimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                        <td class="numero">@(f.FechaUltimoMovimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
                     </tr>
                 }
             </tbody>
@@ -100,12 +137,12 @@ else
             <ul class="pagination">
                 @if (_resultado.Pagina > 1)
                 {
-                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina - 1)">Anterior</a></li>
+                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina - 1)">← Anterior</a></li>
                 }
-                <li class="page-item disabled"><span class="page-link">@_resultado.Pagina / @_resultado.Paginas</span></li>
+                <li class="page-item disabled"><span class="page-link">Página @_resultado.Pagina de @_resultado.Paginas</span></li>
                 @if (_resultado.Pagina < _resultado.Paginas)
                 {
-                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina + 1)">Siguiente</a></li>
+                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina + 1)">Siguiente →</a></li>
                 }
             </ul>
         </nav>
@@ -124,14 +161,15 @@ else
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _instancias = [];
     private Procu360.Infraestructura.Expedientes.ResultadoBusqueda? _resultado;
 
+    private bool HayCriterio => !string.IsNullOrWhiteSpace(Q) || Comitente is not null || Instancia is not null
+        || SinMov == true || Bajas == true;
+
     protected override async Task OnInitializedAsync()
     {
         _comitentes = await Busqueda.ComitentesAsync();
         _instancias = await Busqueda.InstanciasAsync();
 
-        var hayCriterio = !string.IsNullOrWhiteSpace(Q) || Comitente is not null || Instancia is not null
-            || SinMov == true || Bajas == true;
-        if (!hayCriterio) return;
+        if (!HayCriterio) return;
 
         _resultado = await Busqueda.BuscarAsync(new Procu360.Infraestructura.Expedientes.CriteriosBusqueda(
             Texto: Q,

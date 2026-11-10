@@ -78,7 +78,9 @@ public sealed class ServicioBusquedaExpedientes(Procu360DbContext db, AlcanceExp
                 e.Caratula,
                 db.ExpedientePersona.Where(ep => ep.ExpedienteId == e.Id && ep.Rol == 1)
                     .OrderBy(ep => ep.Posicion)
-                    .Select(ep => ep.Persona.Apellido + ", " + ep.Persona.Nombre)
+                    // Empresas: razón social. Personas: "Apellido, Nombre" (sin coma si falta el nombre).
+                    .Select(ep => ep.Persona.RazonSocial
+                                  ?? ((ep.Persona.Apellido ?? "") + (ep.Persona.Nombre != null ? ", " + ep.Persona.Nombre : "")))
                     .FirstOrDefault(),
                 db.ConceptoDeuda.Where(c => c.Id == e.ConceptoDeudaId).Select(c => c.Nombre).FirstOrDefault(),
                 db.Instancia.Where(i => i.Id == e.InstanciaActualId).Select(i => i.Nombre).FirstOrDefault(),

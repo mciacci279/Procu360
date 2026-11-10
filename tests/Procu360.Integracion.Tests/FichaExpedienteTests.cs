@@ -41,6 +41,22 @@ public class FichaExpedienteTests : IDisposable
             .Where(e => e.NroOrden == nroOrden).Select(e => e.Id).SingleAsync();
     }
 
+    [Fact]
+    public async Task Si_el_demandado_es_una_empresa_la_ficha_muestra_su_razon_social()
+    {
+        using var ambito = Ambito(Estudio1, Laura);
+        var db = ambito.ServiceProvider.GetRequiredService<Procu360DbContext>();
+        // Un expediente cuyo demandado (Rol 1) es una persona jurídica del seed.
+        var caso = await db.ExpedientePersona
+            .Where(ep => ep.Rol == 1 && ep.Persona.RazonSocial != null)
+            .Select(ep => new { ep.ExpedienteId, ep.Persona.RazonSocial })
+            .FirstAsync();
+
+        var resumen = await ambito.ServiceProvider.GetRequiredService<FichaExpedienteServicio>().ResumenAsync(caso.ExpedienteId);
+
+        Assert.Equal(caso.RazonSocial, resumen!.Demandado);
+    }
+
     private async Task<int> IdUsuarioAsync(string emailNormalizado)
     {
         using var ambito = _sp.CreateScope();

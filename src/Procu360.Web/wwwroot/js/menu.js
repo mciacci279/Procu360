@@ -21,6 +21,24 @@ export function anchoVentana() {
     return window.innerWidth;
 }
 
+// El acordeón del logo se muestra una vez por sesión del navegador (sessionStorage).
+// Sin almacenamiento, se anima en cada carga completa: no rompe nada.
+export function logoYaAnimado() {
+    try {
+        return window.sessionStorage.getItem("procu360.logo") === "1";
+    } catch {
+        return false;
+    }
+}
+
+export function marcarLogoAnimado() {
+    try {
+        window.sessionStorage.setItem("procu360.logo", "1");
+    } catch {
+        // Sin almacenamiento: la próxima carga vuelve a animar el logo.
+    }
+}
+
 // Registra el atajo "[" una sola vez por página. Se ignora mientras se escribe en un campo.
 export function registrarAtajo(referencia) {
     if (window.__procu360AtajoRegistrado) {

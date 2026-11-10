@@ -1,18 +1,24 @@
-<div class="col-6 col-md-4 col-xl">
-    <div class="card h-100 shadow-sm">
-        <div class="card-body">
-            <div class="small text-uppercase text-muted">@Titulo</div>
-            <div class="display-6 fw-semibold">@Valor</div>
-            @if (!string.IsNullOrEmpty(Detalle))
-            {
-                <div class="small text-muted">@Detalle</div>
-            }
-        </div>
+@* Indicador de Mi día. Va dentro de un contenedor .grilla-kpi; entra escalonado y se eleva al pasar el mouse. *@
+<div class="kpi">
+    <div class="rotulo">
+        <span>@Titulo</span>
+        <span class="icono-tono tono-@Tono"><Icono Nombre="@Simbolo" Tamano="18" Grosor="2" /></span>
     </div>
+    <span class="valor @(Alerta && Valor > 0 ? "alerta" : "")">@Valor</span>
+    @if (!string.IsNullOrEmpty(Detalle))
+    {
+        <span class="detalle">@Detalle</span>
+    }
 </div>
 
 @code {
     [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
     [Parameter, EditorRequired] public int Valor { get; set; }
     [Parameter] public string? Detalle { get; set; }
+    /// <summary>Nombre del ícono (ver Icono.razor).</summary>
+    [Parameter] public string Simbolo { get; set; } = "reloj";
+    /// <summary>rojo, azul, ambar, celeste o verde.</summary>
+    [Parameter] public string Tono { get; set; } = "azul";
+    /// <summary>Si es verdadero y el valor es mayor que cero, el número se muestra en rojo.</summary>
+    [Parameter] public bool Alerta { get; set; }
 }

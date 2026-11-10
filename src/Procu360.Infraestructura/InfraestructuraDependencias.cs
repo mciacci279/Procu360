@@ -23,6 +23,7 @@ public static class InfraestructuraDependencias
         services.AddScoped<Procu360.Infraestructura.Novedades.ServicioNovedades>();
         services.AddScoped<Procu360.Infraestructura.Tareas.ServicioTareas>();
         services.AddScoped<Procu360.Infraestructura.Etapas.ServicioEtapas>();
+        services.AddScoped<Procu360.Infraestructura.Expedientes.ServicioEdicionExpediente>();
         services.AddScoped<SesionEstudioInterceptor>();
         services.AddDbContext<Procu360DbContext>((sp, opciones) => opciones
             .UseSqlServer(cadenaConexion)

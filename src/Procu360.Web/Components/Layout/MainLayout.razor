@@ -8,10 +8,12 @@
             <BarraLateral />
             <div class="area">
                 <header class="barra-superior">
-                    <label for="menu-movil" class="btn btn-outline-secondary btn-sm boton-menu-movil" title="Menú">☰ Menú</label>
+                    <label for="menu-movil" class="btn btn-outline-secondary boton-menu-movil" title="Menú">
+                        <Icono Nombre="menu" Grosor="2" /> Menú
+                    </label>
                     @if (Entorno.IsDevelopment())
                     {
-                        <span class="badge text-bg-warning">Desarrollo · datos de prueba</span>
+                        <span class="pastilla ambar ms-auto">Desarrollo · datos de prueba</span>
                     }
                 </header>
                 <main class="contenido">

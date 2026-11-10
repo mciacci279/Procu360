@@ -1,0 +1,125 @@
+@page "/diligencias"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "expedientes.consultar")]
+@inject Procu360.Infraestructura.Etapas.ServicioEtapas Servicio
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+
+<PageTitle>Diligencias · Procu360</PageTitle>
+
+<div class="encabezado-pagina">
+    <div>
+        <h1>Diligencias</h1>
+        <p class="bajada">Cédulas y oficios de los expedientes que podés ver.</p>
+    </div>
+</div>
+
+<div class="tarjeta panel-filtros">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+        <span style="font-size: 13px; font-weight: 600; color: var(--p-texto-tenue)">Ver</span>
+        <div class="segmentado" role="group" aria-label="Filtro de diligencias">
+            <button type="button" class="@(_soloAbiertas ? "activo" : "")" aria-pressed="@(_soloAbiertas ? "true" : "false")"
+                    @onclick="() => CambiarFiltroAsync(true)">Pendientes de cumplir</button>
+            <button type="button" class="@(!_soloAbiertas ? "activo" : "")" aria-pressed="@(!_soloAbiertas ? "true" : "false")"
+                    @onclick="() => CambiarFiltroAsync(false)">Todas</button>
+        </div>
+    </div>
+</div>
+
+@if (_pagina is null)
+{
+    <p class="text-muted">Cargando…</p>
+}
+else if (_pagina.Total == 0)
+{
+    <div class="tarjeta text-center py-5">
+        <span class="icono-tono tono-celeste mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="diligencias" Tamano="24" Grosor="2" /></span>
+        <p class="mb-0 fw-semibold">No hay diligencias en esta vista.</p>
+    </div>
+}
+else
+{
+    <div class="resumen-resultados">
+        <span><strong>@_pagina.Total</strong> diligencias</span>
+        <span>Página @_pagina.Pagina de @_pagina.Paginas</span>
+    </div>
+    <div class="tabla-contenedor">
+        <table class="table">
+            <thead><tr><th>Vence</th><th>Diligencia</th><th>Expediente</th><th class="text-end">Estado</th></tr></thead>
+            <tbody>
+                @foreach (var d in _pagina.Filas)
+                {
+                    <tr class="@(d.Vencimiento is DateOnly v && v < Hoy && d.Estado == 1 ? "vencida" : "")">
+                        <td>
+                            @if (d.Vencimiento is DateOnly vence && d.Estado == 1 && vence < Hoy)
+                            {
+                                <span class="pastilla roja">Vencida · @vence.ToString("dd/MM/yyyy")</span>
+                            }
+                            else
+                            {
+                                <span class="numero">@(d.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="principal-celda">@d.Nombre</span>
+                            @if (!string.IsNullOrEmpty(d.Observaciones)) { <span class="secundario">@d.Observaciones</span> }
+                        </td>
+                        <td><a class="nro" href="/expedientes/@d.ExpedienteId">@d.NroOrden.ToString("D5")</a></td>
+                        <td class="text-end"><span class="pastilla @ColorEstado(d.Estado)">@NombreEstado(d.Estado)</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_pagina.Paginas > 1)
+    {
+        <nav aria-label="Paginación">
+            <ul class="pagination">
+                <li class="page-item @(_pagina.Pagina <= 1 ? "disabled" : "")">
+                    <button class="page-link" disabled="@(_pagina.Pagina <= 1)" @onclick="() => IrAsync(_pagina.Pagina - 1)">← Anterior</button>
+                </li>
+                <li class="page-item disabled"><span class="page-link">Página @_pagina.Pagina de @_pagina.Paginas</span></li>
+                <li class="page-item @(_pagina.Pagina >= _pagina.Paginas ? "disabled" : "")">
+                    <button class="page-link" disabled="@(_pagina.Pagina >= _pagina.Paginas)" @onclick="() => IrAsync(_pagina.Pagina + 1)">Siguiente →</button>
+                </li>
+            </ul>
+        </nav>
+    }
+}
+
+@code {
+    private bool _soloAbiertas = true;
+    private Procu360.Infraestructura.Etapas.PaginaDiligencias? _pagina;
+
+    private static DateOnly Hoy => Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Contexto del circuito: el middleware solo corre en la primera request.
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
+        await CargarAsync(1);
+    }
+
+    private async Task CargarAsync(int pagina) =>
+        _pagina = await Servicio.ListarDiligenciasAsync(_soloAbiertas, pagina);
+
+    private async Task CambiarFiltroAsync(bool soloAbiertas)
+    {
+        _soloAbiertas = soloAbiertas;
+        await CargarAsync(1);
+    }
+
+    private async Task IrAsync(int pagina) => await CargarAsync(pagina);
+
+    private static string NombreEstado(byte estado) => estado switch
+    {
+        1 => "Pendiente", 2 => "Cumplimentada", 3 => "Suspendida", 4 => "Baja", _ => "—"
+    };
+
+    private static string ColorEstado(byte estado) => estado switch
+    {
+        1 => "ambar", 2 => "verde", _ => "gris"
+    };
+}

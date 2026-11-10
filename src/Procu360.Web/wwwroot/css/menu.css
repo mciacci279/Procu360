@@ -1,108 +1,362 @@
-/* Barra lateral de Procu360 (docs/02 §2.1): 248 px expandida, 64 px plegada, oculta en pantallas chicas. */
+/* Barra lateral de Procu360 (docs/02 §2.1): 256 px expandida, 84 px plegada, panel deslizable en pantallas chicas.
+   Colores y curvas salen de tema.css. */
 
 .barra {
-    width: 248px;
-    min-height: 100vh;
+    width: 256px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
     display: flex;
     flex-direction: column;
+    gap: 24px;
     flex-shrink: 0;
-    background: #1f3a5f;
-    color: #fff;
-    transition: width .2s ease;
+    padding: 20px 14px 16px;
+    background: var(--p-noche);
+    color: #CBD5E1;
+    transition: width .45s var(--p-curva);
 }
 
 .barra.plegada {
-    width: 64px;
+    width: 84px;
 }
 
 .barra .texto {
     white-space: nowrap;
     overflow: hidden;
+    max-width: 190px;
+    opacity: 1;
+    transition: opacity .25s ease, max-width .45s var(--p-curva);
 }
 
 .barra.plegada .texto {
-    display: none;
+    max-width: 0;
+    opacity: 0;
 }
+
+/* ---------- Cabecera y logo acordeón ---------- */
 
 .barra .cabecera-barra {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .75rem .9rem;
-    border-bottom: 1px solid rgba(255, 255, 255, .15);
+    gap: 12px;
+    min-height: 44px;
+    padding-left: 6px;
 }
 
-.barra .cabecera-barra .boton-plegar {
-    color: #fff;
-    border: 0;
+.barra .boton-plegar {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, .25);
     background: transparent;
-    padding: .25rem;
-    font-size: 1.25rem;
-    line-height: 1;
+    color: #E2E8F0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .2s ease;
 }
 
-.barra .marca {
-    font-weight: 600;
+.barra .boton-plegar:hover {
+    background: rgba(148, 163, 184, .14);
 }
+
+.barra .boton-plegar:focus-visible {
+    outline: 2px solid var(--p-celeste);
+    outline-offset: 2px;
+}
+
+.barra .logo {
+    font-family: var(--p-fuente-titulos);
+    font-weight: 800;
+    font-size: 24px;
+    letter-spacing: -.02em;
+    color: #FFFFFF;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: baseline;
+    white-space: nowrap;
+}
+
+.barra .logo:hover {
+    color: #FFFFFF;
+}
+
+.barra .logo-rocu {
+    display: inline-block;
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: max-width 1.4s var(--p-curva), opacity .8s ease .3s, transform 1.4s var(--p-curva);
+}
+
+.barra .logo.abierto .logo-rocu {
+    max-width: 3.2em;
+    opacity: 1;
+    transform: none;
+}
+
+.barra .logo.sin-transicion .logo-rocu {
+    transition: none;
+}
+
+.barra .logo-360 {
+    color: var(--p-celeste);
+}
+
+/* Plegada: cabecera apilada y "P360" en vertical, para que no sobresalga de la barra. */
+.barra.plegada .cabecera-barra {
+    flex-direction: column;
+    padding-left: 0;
+    gap: 16px;
+}
+
+.barra.plegada .logo {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 22px;
+}
+
+.barra.plegada .logo-rocu {
+    display: none;
+}
+
+/* ---------- Navegación ---------- */
 
 .barra nav {
     flex: 1;
+    min-height: 0; /* sin esto, en un contenedor flex la lista no se acomoda a la altura de la barra */
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* Si la lista no entra (pantallas bajas) se desliza igual, pero sin barra de desplazamiento:
+       el borde inferior se desvanece para indicar que hay más. */
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
+
+.barra nav::-webkit-scrollbar {
+    display: none;
 }
 
 .barra .grupo {
-    font-size: .7rem;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
     text-transform: uppercase;
-    letter-spacing: .04em;
-    opacity: .7;
-    padding: .9rem .9rem .25rem;
+    color: #94A3B8;
+    padding: 14px 14px 8px;
+}
+
+.barra .grupo:first-child {
+    padding-top: 0;
 }
 
 .barra .item {
     display: flex;
     align-items: center;
-    gap: .6rem;
-    padding: .5rem .9rem;
-    color: #fff;
-    text-decoration: none;
+    gap: 12px;
+    min-height: 44px;
+    padding: 0 14px;
     border: 0;
+    border-radius: 12px;
     background: transparent;
-    width: 100%;
+    color: #CBD5E1;
+    font: inherit;
+    font-weight: 500;
+    text-decoration: none;
     text-align: left;
+    width: 100%;
+    position: relative;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease;
 }
 
-.barra .item:hover,
+.barra .item svg {
+    flex: 0 0 20px;
+}
+
+.barra .item:hover {
+    background: rgba(148, 163, 184, .12);
+    color: #FFFFFF;
+}
+
 .barra .item:focus-visible {
-    background: rgba(255, 255, 255, .12);
-    outline: 2px solid #9ec5fe;
+    outline: 2px solid var(--p-celeste);
     outline-offset: -2px;
 }
 
-.barra .pie {
-    border-top: 1px solid rgba(255, 255, 255, .15);
-    padding: .75rem .9rem;
-    font-size: .85rem;
+.barra .item.active {
+    background: rgba(56, 189, 248, .14);
+    color: #FFFFFF;
 }
 
-.barra .pie .item {
-    padding-left: 0;
-    padding-right: 0;
+.barra .item.active::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--p-celeste);
 }
+
+/* ---------- Pie: perfil y salir ---------- */
+
+.barra .pie {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(148, 163, 184, .18);
+}
+
+.barra .perfil {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 2px;
+}
+
+.barra .avatar {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--p-noche-2);
+    color: var(--p-celeste);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.barra .datos-perfil {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.barra .datos-perfil .nombre {
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.barra .datos-perfil .estudio {
+    color: #94A3B8;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Plegada (escritorio): compacta, para que todo entre sin desplazarse ---------- */
+
+@media (min-width: 768px) {
+    .barra.plegada {
+        gap: 18px;
+        padding: 16px 12px 14px;
+    }
+
+    .barra.plegada .cabecera-barra {
+        gap: 12px;
+    }
+
+    .barra.plegada .logo {
+        font-size: 19px;
+    }
+
+    /* Los títulos de grupo pasan a ser una línea divisoria fina. */
+    .barra.plegada .grupo {
+        max-width: none;
+        opacity: 1;
+        height: 1px;
+        margin: 8px 10px;
+        padding: 0;
+        font-size: 0;
+        background: rgba(148, 163, 184, .2);
+    }
+
+    .barra.plegada .grupo:first-child {
+        display: none;
+    }
+
+    .barra.plegada .item {
+        justify-content: center;
+        gap: 0;
+        min-height: 42px;
+        padding: 0;
+    }
+
+    .barra.plegada .item.active::before {
+        left: -12px;
+    }
+
+    .barra.plegada .pie {
+        align-items: center;
+        gap: 4px;
+        padding-top: 10px;
+    }
+
+    .barra.plegada .perfil {
+        justify-content: center;
+        gap: 0;
+        padding: 2px 0;
+    }
+
+    .barra.plegada .pie form {
+        width: 100%;
+    }
+}
+
+/* ---------- Pantallas chicas: panel deslizable ---------- */
 
 @media (max-width: 767px) {
-    .barra {
+    .barra,
+    .barra.plegada {
         position: fixed;
         z-index: 1040;
         top: 0;
         left: 0;
-        height: 100vh;
-        width: 248px;
+        width: 280px;
         transform: translateX(-100%);
-        transition: transform .2s ease;
+        transition: transform .3s var(--p-curva);
+        box-shadow: 0 0 40px rgba(15, 23, 42, .35);
     }
 
     .barra.plegada .texto {
-        display: inline;
+        max-width: 190px;
+        opacity: 1;
+    }
+
+    .barra.plegada .cabecera-barra {
+        flex-direction: row;
+        padding-left: 6px;
+        gap: 12px;
+    }
+
+    .barra.plegada .logo {
+        writing-mode: horizontal-tb;
+        transform: none;
+        font-size: 24px;
+    }
+
+    .barra.plegada .logo-rocu {
+        display: inline-block;
+        max-width: 3.2em;
+        opacity: 1;
+        transform: none;
     }
 
     #menu-movil:checked + .contenedor-app .barra {

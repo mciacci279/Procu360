@@ -173,6 +173,57 @@ public class EtapasTests : IDisposable
     }
 
     [Fact]
+    public async Task La_etapa_actual_es_la_abierta_mas_reciente_del_flujo_y_no_la_diligencia()
+    {
+        var expediente = await ExpedienteAsync();
+        var etapa = await EtapaPrincipalAsync(conTarea: false);
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEtapas>();
+
+        Assert.True((await servicio.RegistrarAsync(expediente, etapa, new DateOnly(2026, 9, 1), "PRUEBA-actual-1", null)).Exito);
+        Assert.True((await servicio.RegistrarAsync(expediente, etapa, new DateOnly(2026, 10, 1), "PRUEBA-actual-2", null)).Exito);
+
+        var filas = await servicio.ListarAsync(expediente);
+        var actuales = filas.Where(f => f.EsActual).ToList();
+        Assert.Contains(actuales, f => f.Observaciones == "PRUEBA-actual-2");
+        Assert.DoesNotContain(actuales, f => f.Observaciones == "PRUEBA-actual-1");
+        Assert.DoesNotContain(filas, f => f.EsDiligencia && f.EsActual);
+    }
+
+    [Fact]
+    public async Task Una_diligencia_registrada_aparece_en_el_listado_solo_para_quien_tiene_alcance()
+    {
+        var expediente = await ExpedienteAsync();
+        int etapa;
+        using (var ambito = Ambito(Laura))
+            etapa = await ambito.ServiceProvider.GetRequiredService<Procu360DbContext>().Etapa
+                .Where(e => e.Activa && e.EsDiligencia).OrderBy(e => e.Orden).Select(e => e.Id).FirstAsync();
+
+        using (var ambito = Ambito(Laura))
+        {
+            var r = await ambito.ServiceProvider.GetRequiredService<ServicioEtapas>()
+                .RegistrarAsync(expediente, etapa, ServicioMiDia.HoyEnCordoba(), "PRUEBA-diligencia", null);
+            Assert.True(r.Exito, r.Error);
+        }
+
+        using (var ambito = Ambito(Laura))
+        {
+            var pagina = await ambito.ServiceProvider.GetRequiredService<ServicioEtapas>().ListarDiligenciasAsync(true, 1);
+            Assert.Contains(pagina.Filas, f => f.ExpedienteId == expediente && f.Nombre != null);
+        }
+
+        int diego;
+        using (var ambito = _sp.CreateScope())
+            diego = await ambito.ServiceProvider.GetRequiredService<Procu360DbContext>().Usuario
+                .Where(u => u.EmailNormalizado == Diego).Select(u => u.Id).SingleAsync();
+        using var ambitoDiego = Ambito(diego);
+        var paginaDiego = await ambitoDiego.ServiceProvider.GetRequiredService<ServicioEtapas>().ListarDiligenciasAsync(false, 1);
+        var visibles = await (await ambitoDiego.ServiceProvider.GetRequiredService<AlcanceExpedientes>().IdsAsync()).ToListAsync();
+        Assert.DoesNotContain(paginaDiego.Filas, f => f.ExpedienteId == expediente && !visibles.Contains(expediente));
+        Assert.All(paginaDiego.Filas, f => Assert.Contains(f.ExpedienteId, visibles));
+    }
+
+    [Fact]
     public async Task Los_feriados_no_habiles_incluyen_nacionales_y_provinciales_del_Estudio()
     {
         using var ambito = Ambito(Laura);

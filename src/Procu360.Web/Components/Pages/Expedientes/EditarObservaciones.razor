@@ -1,0 +1,66 @@
+<section class="tarjeta">
+    <div class="cabecera-seccion">
+        <span class="icono-tono tono-celeste"><Icono Nombre="nota" Tamano="18" Grosor="2" /></span>
+        <h2>Observaciones</h2>
+        @if (Puede && !_editando)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Empezar">Editar</button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2" role="alert">@_error</div>
+    }
+
+    @if (!_editando)
+    {
+        <dl class="datos">
+            <dt>Generales</dt><dd style="white-space: pre-line; font-weight: 500">@(Datos.Observaciones ?? "Sin observaciones.")</dd>
+            <dt>Administrativas</dt><dd style="white-space: pre-line; font-weight: 500">@(Datos.ObservacionesAdministrativas ?? "—")</dd>
+        </dl>
+    }
+    else
+    {
+        <div class="mb-2">
+            <label class="form-label small" for="obs">Observaciones</label>
+            <textarea id="obs" class="form-control form-control-sm" rows="3" maxlength="4000" @bind="_observaciones"></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small" for="obsAdmin">Observaciones administrativas</label>
+            <textarea id="obsAdmin" class="form-control form-control-sm" rows="3" maxlength="4000" @bind="_administrativas"></textarea>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary" @onclick="GuardarAsync">Guardar</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Procu360.Infraestructura.Expedientes.DatosObservaciones Datos { get; set; } = null!;
+    [Parameter] public bool Puede { get; set; }
+    /// <summary>Guarda la sección. Devuelve el error a mostrar, o null si se guardó.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosObservaciones, Task<string?>> Guardar { get; set; } = null!;
+
+    private bool _editando;
+    private string? _error;
+    private string? _observaciones, _administrativas;
+
+    private void Empezar()
+    {
+        _observaciones = Datos.Observaciones;
+        _administrativas = Datos.ObservacionesAdministrativas;
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cancelar() { _editando = false; _error = null; }
+
+    private async Task GuardarAsync()
+    {
+        var nuevo = new Procu360.Infraestructura.Expedientes.DatosObservaciones(_observaciones, _administrativas, Datos.Version);
+        _error = await Guardar(nuevo);
+        if (_error is null) _editando = false;
+    }
+}

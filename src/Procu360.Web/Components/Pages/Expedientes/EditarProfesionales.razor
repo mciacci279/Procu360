@@ -1,0 +1,93 @@
+<section class="tarjeta">
+    <div class="cabecera-seccion">
+        <span class="icono-tono tono-verde"><Icono Nombre="escudo" Tamano="18" Grosor="2" /></span>
+        <h2>Profesionales</h2>
+        @if (Puede && !_editando)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Empezar">Editar</button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2" role="alert">@_error</div>
+    }
+
+    @if (!_editando)
+    {
+        <dl class="datos">
+            <dt>Procurador</dt><dd>@(Nombre(Datos.ProcuradorId, Procuradores) ?? "—")</dd>
+            <dt>Patrocinante</dt><dd>@(Nombre(Datos.PatrocinanteId, Patrocinantes) ?? "—")</dd>
+            <dt>Abogado del interior</dt><dd>@(Nombre(Datos.AbogadoInteriorId, AbogadosInterior) ?? "—")</dd>
+        </dl>
+    }
+    else
+    {
+        <div class="row g-2">
+            <div class="col-12">
+                <label class="form-label small" for="procurador">Procurador</label>
+                <select id="procurador" class="form-select form-select-sm" @bind="_procurador">
+                    <option value="0">Sin asignar</option>
+                    @foreach (var p in Procuradores) { <option value="@p.Id">@p.Nombre</option> }
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label small" for="patrocinante">Patrocinante</label>
+                <select id="patrocinante" class="form-select form-select-sm" @bind="_patrocinante">
+                    <option value="0">Sin asignar</option>
+                    @foreach (var p in Patrocinantes) { <option value="@p.Id">@p.Nombre</option> }
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label small" for="abogadoInterior">Abogado del interior</label>
+                <select id="abogadoInterior" class="form-select form-select-sm" @bind="_abogadoInterior">
+                    <option value="0">Sin asignar</option>
+                    @foreach (var p in AbogadosInterior) { <option value="@p.Id">@p.Nombre</option> }
+                </select>
+            </div>
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-primary" @onclick="GuardarAsync">Guardar</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Procu360.Infraestructura.Expedientes.DatosProfesionales Datos { get; set; } = null!;
+    [Parameter] public bool Puede { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> Procuradores { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> Patrocinantes { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> AbogadosInterior { get; set; } = [];
+    /// <summary>Guarda la sección. Devuelve el error a mostrar, o null si se guardó.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosProfesionales, Task<string?>> Guardar { get; set; } = null!;
+
+    private bool _editando;
+    private string? _error;
+    private int _procurador, _patrocinante, _abogadoInterior;
+
+    private static string? Nombre(int? id, IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> opciones) =>
+        opciones.FirstOrDefault(o => o.Id == id)?.Nombre;
+
+    private void Empezar()
+    {
+        _procurador = Datos.ProcuradorId ?? 0;
+        _patrocinante = Datos.PatrocinanteId ?? 0;
+        _abogadoInterior = Datos.AbogadoInteriorId ?? 0;
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cancelar() { _editando = false; _error = null; }
+
+    private async Task GuardarAsync()
+    {
+        var nuevo = new Procu360.Infraestructura.Expedientes.DatosProfesionales(
+            _procurador == 0 ? null : _procurador,
+            _patrocinante == 0 ? null : _patrocinante,
+            _abogadoInterior == 0 ? null : _abogadoInterior,
+            Datos.Version);
+        _error = await Guardar(nuevo);
+        if (_error is null) _editando = false;
+    }
+}

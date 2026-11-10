@@ -9,34 +9,40 @@
         <button type="button" class="boton-plegar" aria-expanded="@(!_plegada)"
                 title="@(_plegada ? "Expandir menú" : "Plegar menú") ( [ )"
                 @onclick="AlternarAsync">
-            <span aria-hidden="true">☰</span>
+            <Icono Nombre="menu" Grosor="2" />
             <span class="visually-hidden">@(_plegada ? "Expandir menú" : "Plegar menú")</span>
         </button>
-        <span class="marca texto">Procu360</span>
+        @* Logo acordeón: arranca como P360 y se abre a Procu360. Plegado, queda en vertical. *@
+        <a class="@ClaseLogo" href="/" aria-label="Procu360, inicio">
+            <span>P</span><span class="logo-rocu" aria-hidden="true">rocu</span><span class="logo-360">360</span>
+        </a>
     </div>
 
     <nav>
         <div class="grupo texto">Trabajo diario</div>
-        <a class="item" href="/" title="Inicio">
-            <span aria-hidden="true">⌂</span><span class="texto">Inicio</span>
-        </a>
+        <NavLink class="item" href="/" Match="NavLinkMatch.All" title="Mi día">
+            <Icono Nombre="inicio" /><span class="texto">Mi día</span>
+        </NavLink>
         @if (_puedeConsultarExpedientes)
         {
-            <a class="item" href="expedientes" title="Expedientes">
-                <span aria-hidden="true">▤</span><span class="texto">Expedientes</span>
-            </a>
+            <NavLink class="item" href="expedientes" title="Expedientes">
+                <Icono Nombre="expedientes" /><span class="texto">Expedientes</span>
+            </NavLink>
+            <NavLink class="item" href="diligencias" title="Diligencias: cédulas y oficios">
+                <Icono Nombre="diligencias" /><span class="texto">Diligencias</span>
+            </NavLink>
         }
         @if (_puedeConsultarTareas)
         {
-            <a class="item" href="tareas" title="Tareas y agenda">
-                <span aria-hidden="true">☑</span><span class="texto">Tareas</span>
-            </a>
+            <NavLink class="item" href="tareas" title="Tareas y agenda">
+                <Icono Nombre="tareas" /><span class="texto">Tareas</span>
+            </NavLink>
         }
         @if (_puedeConsultarNovedades)
         {
-            <a class="item" href="novedades" title="Novedades">
-                <span aria-hidden="true">✎</span><span class="texto">Novedades</span>
-            </a>
+            <NavLink class="item" href="novedades" title="Novedades">
+                <Icono Nombre="novedades" /><span class="texto">Novedades</span>
+            </NavLink>
         }
 
         @if (_puedeInvitar || _puedeAdministrar)
@@ -44,18 +50,18 @@
             <div class="grupo texto">Administración</div>
             @if (_puedeInvitar)
             {
-                <a class="item" href="estudio/invitaciones" title="Invitaciones">
-                    <span aria-hidden="true">✉</span><span class="texto">Invitaciones</span>
-                </a>
+                <NavLink class="item" href="estudio/invitaciones" title="Invitaciones">
+                    <Icono Nombre="invitaciones" /><span class="texto">Invitaciones</span>
+                </NavLink>
             }
             @if (_puedeAdministrar)
             {
-                <a class="item" href="estudio/usuarios" title="Usuarios del Estudio">
-                    <span aria-hidden="true">👥</span><span class="texto">Usuarios</span>
-                </a>
-                <a class="item" href="estudio/roles" title="Roles y permisos">
-                    <span aria-hidden="true">🔑</span><span class="texto">Roles y permisos</span>
-                </a>
+                <NavLink class="item" href="estudio/usuarios" title="Usuarios del Estudio">
+                    <Icono Nombre="usuarios" /><span class="texto">Usuarios</span>
+                </NavLink>
+                <NavLink class="item" href="estudio/roles" title="Roles y permisos">
+                    <Icono Nombre="roles" /><span class="texto">Roles y permisos</span>
+                </NavLink>
             }
         }
     </nav>
@@ -63,18 +69,22 @@
     <div class="pie">
         @if (_perfil is not null)
         {
-            <div class="texto fw-semibold">@_perfil.NombreCompleto</div>
-            <div class="texto small">@_perfil.NombreEstudio</div>
-            <div class="texto small opacity-75">@string.Join(", ", _perfil.Roles)</div>
+            <div class="perfil" title="@_perfil.NombreCompleto · @_perfil.NombreEstudio">
+                <span class="avatar" aria-hidden="true">@Iniciales(_perfil.NombreCompleto)</span>
+                <span class="texto datos-perfil">
+                    <span class="nombre">@_perfil.NombreCompleto</span>
+                    <span class="estudio">@_perfil.NombreEstudio · @string.Join(", ", _perfil.Roles)</span>
+                </span>
+            </div>
         }
         else
         {
-            <a class="texto small text-white" href="cuenta/estudio">Elegir Estudio</a>
+            <a class="item" href="cuenta/estudio"><Icono Nombre="expedientes" /><span class="texto">Elegir Estudio</span></a>
         }
-        <form method="post" action="/cuenta/salir" class="mt-2">
+        <form method="post" action="/cuenta/salir">
             <AntiforgeryToken />
-            <button type="submit" class="item">
-                <span aria-hidden="true">⏻</span><span class="texto">Salir</span>
+            <button type="submit" class="item" title="Salir">
+                <Icono Nombre="salir" /><span class="texto">Salir</span>
             </button>
         </form>
     </div>
@@ -82,6 +92,8 @@
 
 @code {
     private bool _plegada;
+    private bool _logoAbierto;
+    private bool _logoSinTransicion;
     private bool _puedeInvitar;
     private bool _puedeAdministrar;
     private bool _puedeConsultarExpedientes;
@@ -91,6 +103,10 @@
     private int? _usuarioId;
     private IJSObjectReference? _modulo;
     private DotNetObjectReference<BarraLateral>? _referencia;
+    private readonly CancellationTokenSource _cierre = new();
+
+    private string ClaseLogo =>
+        "logo" + (_logoAbierto && !_plegada ? " abierto" : "") + (_logoSinTransicion ? " sin-transicion" : "");
 
     /// <summary>
     /// Permisos y perfil se calculan en un ámbito propio, separado del de la página:
@@ -132,34 +148,102 @@
 
         _referencia = DotNetObjectReference.Create(this);
         await _modulo.InvokeVoidAsync("registrarAtajo", _referencia);
+
+        // El acordeón del logo se muestra una vez por sesión del navegador; después aparece ya abierto.
+        if (await _modulo.InvokeAsync<bool>("logoYaAnimado"))
+        {
+            _logoSinTransicion = true;
+            _logoAbierto = true;
+            StateHasChanged();
+            return;
+        }
+
         StateHasChanged();
+        await AbrirLogoConDemoraAsync(1000);
+        await _modulo.InvokeVoidAsync("marcarLogoAnimado");
     }
 
     private string ClavePreferencia => $"procu360.menu.{_usuarioId}";
 
     private async Task AlternarAsync()
     {
-        _plegada = !_plegada;
+        if (_plegada)
+        {
+            // Al expandir, el logo vuelve a P360 y se abre cuando la barra ya tomó su ancho.
+            _plegada = false;
+            _logoAbierto = false;
+            _logoSinTransicion = false;
+            StateHasChanged();
+            await GuardarPreferenciaAsync();
+            await AbrirLogoConDemoraAsync(450);
+        }
+        else
+        {
+            _plegada = true;
+            await GuardarPreferenciaAsync();
+        }
+    }
+
+    private async Task AbrirLogoConDemoraAsync(int milisegundos)
+    {
+        try
+        {
+            await Task.Delay(milisegundos, _cierre.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+        _logoAbierto = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task GuardarPreferenciaAsync()
+    {
         if (_modulo is not null)
         {
             await _modulo.InvokeVoidAsync("guardarPreferencia", ClavePreferencia, _plegada ? "1" : "0");
         }
     }
 
+    private static string Iniciales(string nombre)
+    {
+        // Solo palabras que empiezan con letra (mismo criterio que la ficha).
+        var partes = (nombre ?? string.Empty)
+            .Split([' ', ',', '.', '-', '/'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(p => char.IsLetter(p[0]))
+            .ToArray();
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => char.ToUpperInvariant(partes[0][0]).ToString(),
+            _ => string.Concat(char.ToUpperInvariant(partes[0][0]), char.ToUpperInvariant(partes[^1][0]))
+        };
+    }
+
     /// <summary>Llamado desde JavaScript con la tecla "[".</summary>
     [JSInvokable]
     public async Task AlternarDesdeAtajoAsync()
     {
-        await AlternarAsync();
+        await InvokeAsync(AlternarAsync);
         await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()
     {
+        _cierre.Cancel();
+        _cierre.Dispose();
         _referencia?.Dispose();
         if (_modulo is not null)
         {
-            await _modulo.DisposeAsync();
+            try
+            {
+                await _modulo.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // El circuito ya se cerró al navegar: no hay módulo que liberar del lado del navegador.
+            }
         }
     }
 }

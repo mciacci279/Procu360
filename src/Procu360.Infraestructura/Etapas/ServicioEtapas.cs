@@ -17,8 +17,13 @@ namespace Procu360.Infraestructura.Etapas;
 /// actualiza la etapa actual del expediente, genera la tarea si la etapa lo indica y audita.
 /// Solo sobre expedientes dentro del alcance de la persona.
 /// </summary>
+public sealed record FilaDiligencia(long Id, long ExpedienteId, int NroOrden, string Nombre, DateOnly Inicio,
+    DateOnly? Vencimiento, byte Estado, string? Observaciones);
+
+public sealed record PaginaDiligencias(IReadOnlyList<FilaDiligencia> Filas, int Total, int Pagina, int Paginas);
+
 public sealed record FilaEtapa(long Id, string Nombre, byte Flujo, bool EsDiligencia, DateOnly Inicio,
-    DateOnly? Vencimiento, byte Estado, decimal? Monto, string? Observaciones);
+    DateOnly? Vencimiento, byte Estado, decimal? Monto, string? Observaciones, bool EsActual = false);
 
 public sealed class ServicioEtapas(
     Procu360DbContext db,
@@ -130,12 +135,45 @@ public sealed class ServicioEtapas(
         if (!await (await alcance.IdsIncluyendoBajasAsync(ct)).AnyAsync(x => x == expedienteId, ct))
             return [];
 
-        return await db.EtapaExpediente.Where(x => x.ExpedienteId == expedienteId)
+        var filas = await db.EtapaExpediente.Where(x => x.ExpedienteId == expedienteId)
             .OrderByDescending(x => x.FechaInicio).ThenByDescending(x => x.Id)
             .Select(x => new FilaEtapa(x.Id, x.Etapa.Nombre, x.Etapa.Flujo, x.Etapa.EsDiligencia,
                 x.FechaInicio, x.FechaVencimiento, x.Estado, x.Monto, x.Observaciones))
             .ToListAsync(ct);
+
+        // Etapa actual: la abierta más reciente de cada flujo. Las diligencias no cuentan como etapa actual.
+        var actuales = filas.Where(f => f.Estado == EstadoAlta && !f.EsDiligencia)
+            .GroupBy(f => f.Flujo)
+            .Select(g => g.OrderByDescending(f => f.Inicio).ThenByDescending(f => f.Id).First().Id)
+            .ToHashSet();
+        return filas.Select(f => f with { EsActual = actuales.Contains(f.Id) }).ToList();
     }
+
+    /// <summary>
+    /// Diligencias (cédulas y oficios) del Estudio dentro del alcance de la persona, ordenadas por vencimiento.
+    /// Con <paramref name="soloAbiertas"/> muestra las de estado alta (pendientes de cumplir).
+    /// </summary>
+    public async Task<PaginaDiligencias> ListarDiligenciasAsync(bool soloAbiertas, int pagina, CancellationToken ct = default)
+    {
+        var enAlcance = await alcance.IdsAsync(ct);
+        var consulta = db.EtapaExpediente.Where(x => x.Etapa.EsDiligencia && enAlcance.Contains(x.ExpedienteId));
+        if (soloAbiertas) consulta = consulta.Where(x => x.Estado == EstadoAlta);
+
+        var total = await consulta.CountAsync(ct);
+        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)TamanioPaginaDiligencias));
+        var numero = Math.Clamp(pagina, 1, paginas);
+
+        var filas = await consulta
+            .OrderBy(x => x.FechaVencimiento == null).ThenBy(x => x.FechaVencimiento).ThenBy(x => x.Id)
+            .Skip((numero - 1) * TamanioPaginaDiligencias).Take(TamanioPaginaDiligencias)
+            .Select(x => new FilaDiligencia(x.Id, x.ExpedienteId, x.Expediente.NroOrden, x.Etapa.Nombre,
+                x.FechaInicio, x.FechaVencimiento, x.Estado, x.Observaciones))
+            .ToListAsync(ct);
+
+        return new PaginaDiligencias(filas, total, numero, paginas);
+    }
+
+    private const int TamanioPaginaDiligencias = 25;
 
     /// <summary>Etapas activas del Estudio para el selector de registro.</summary>
     public async Task<IReadOnlyList<(int Id, string Nombre, byte Flujo)>> CatalogoAsync(CancellationToken ct = default)

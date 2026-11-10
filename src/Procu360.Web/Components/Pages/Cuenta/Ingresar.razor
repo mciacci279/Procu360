@@ -4,8 +4,9 @@
 
 <PageTitle>Ingresar · Procu360</PageTitle>
 
-<div class="container py-5" style="max-width: 420px;">
-    <h1 class="h3 mb-4">Ingresar</h1>
+<MarcoAcceso>
+    <h1>Ingresar</h1>
+    <p class="saludo">Bienvenido/a. Ingresá con tu cuenta del Estudio.</p>
 
     @if (Error is not null)
     {
@@ -20,15 +21,29 @@
         <input type="hidden" name="__RequestVerificationToken" value="@_token" />
         <div class="mb-3">
             <label class="form-label" for="email">Email</label>
-            <input class="form-control" id="email" name="email" type="email" required autocomplete="username" />
+            <div class="campo-icono">
+                <Icono Nombre="invitaciones" Tamano="18" />
+                <input class="form-control" id="email" name="email" type="email" required autocomplete="username"
+                       placeholder="nombre@estudio.com" />
+            </div>
         </div>
         <div class="mb-3">
             <label class="form-label" for="clave">Contraseña</label>
-            <input class="form-control" id="clave" name="clave" type="password" required autocomplete="current-password" />
+            <div class="campo-icono">
+                <Icono Nombre="candado" Tamano="18" />
+                <input class="form-control" id="clave" name="clave" type="password" required autocomplete="current-password" />
+            </div>
         </div>
-        <button class="btn btn-primary w-100" type="submit">Ingresar</button>
+        <button class="btn btn-primary boton-acceso" type="submit">
+            Ingresar <Icono Nombre="flecha" Tamano="18" Grosor="2.2" />
+        </button>
     </form>
-</div>
+
+    <p class="nota-acceso">
+        <Icono Nombre="escudo" Tamano="16" Grosor="2" />
+        Lo que ves depende de tu rol en cada Estudio.
+    </p>
+</MarcoAcceso>
 
 @code {
     // Token generado desde la request HTTP: liga el formulario a la identidad real de quien lo envía.

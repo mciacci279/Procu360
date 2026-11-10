@@ -6,8 +6,12 @@
 
 <PageTitle>Elegir Estudio · Procu360</PageTitle>
 
-<div class="container py-5" style="max-width: 520px;">
-    <h1 class="h3 mb-4">Elegí un Estudio</h1>
+<div class="tarjeta mx-auto my-4" style="max-width: 560px; padding: 32px">
+    <div class="cabecera-seccion">
+        <span class="icono-tono tono-azul"><Icono Nombre="expedientes" Tamano="18" Grosor="2" /></span>
+        <h1 class="m-0" style="font-size: 24px">Elegí un Estudio</h1>
+    </div>
+    <p class="text-muted">Tenés acceso a más de un Estudio. Elegí con cuál querés trabajar ahora.</p>
 
     @if (Error == "estudio")
     {
@@ -22,14 +26,21 @@
     {
         <form method="post" action="/cuenta/elegir-estudio">
             <input type="hidden" name="__RequestVerificationToken" value="@_token" />
-            @foreach (var m in _membresias)
-            {
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="radio" name="estudioId" id="e@(m.EstudioId)" value="@m.EstudioId" required />
-                    <label class="form-check-label" for="e@(m.EstudioId)">@m.NombreEstudio</label>
-                </div>
-            }
-            <button class="btn btn-primary mt-3" type="submit">Continuar</button>
+            <div class="lista-estudios">
+                @foreach (var m in _membresias)
+                {
+                    <label class="opcion-estudio">
+                        <input type="radio" name="estudioId" value="@m.EstudioId" required />
+                        <span>
+                            <span class="icono-tono tono-celeste" aria-hidden="true"><Icono Nombre="balanza" Tamano="18" Grosor="2" /></span>
+                            @m.NombreEstudio
+                        </span>
+                    </label>
+                }
+            </div>
+            <button class="btn btn-primary boton-acceso mt-3" type="submit">
+                Continuar <Icono Nombre="flecha" Tamano="18" Grosor="2.2" />
+            </button>
         </form>
     }
 </div>

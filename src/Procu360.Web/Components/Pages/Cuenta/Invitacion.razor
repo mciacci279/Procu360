@@ -4,8 +4,9 @@
 
 <PageTitle>Aceptar invitación · Procu360</PageTitle>
 
-<div class="container py-5" style="max-width: 420px;">
-    <h1 class="h3 mb-4">Aceptar invitación</h1>
+<MarcoAcceso>
+    <h1>Aceptar invitación</h1>
+    <p class="saludo">Elegí una contraseña para activar tu cuenta.</p>
 
     @if (Error is not null)
     {
@@ -18,19 +19,25 @@
     }
     else
     {
-        <p>Elegí una contraseña para tu cuenta. Debe tener al menos 10 caracteres, con mayúsculas, minúsculas y números.</p>
         <form method="post" action="/cuenta/invitacion">
             <input type="hidden" name="__RequestVerificationToken" value="@_token" />
             <input type="hidden" name="usuarioId" value="@U" />
             <input type="hidden" name="token" value="@T" />
-            <div class="mb-3">
+            <div class="mb-2">
                 <label class="form-label" for="clave">Nueva contraseña</label>
-                <input class="form-control" id="clave" name="clave" type="password" required autocomplete="new-password" />
+                <div class="campo-icono">
+                    <Icono Nombre="candado" Tamano="18" />
+                    <input class="form-control" id="clave" name="clave" type="password" required autocomplete="new-password"
+                           aria-describedby="reglas-clave" />
+                </div>
             </div>
-            <button class="btn btn-primary w-100" type="submit">Aceptar y activar</button>
+            <p id="reglas-clave" class="small text-muted mb-3">Al menos 10 caracteres, con mayúsculas, minúsculas y números.</p>
+            <button class="btn btn-primary boton-acceso" type="submit">
+                Aceptar y activar <Icono Nombre="flecha" Tamano="18" Grosor="2.2" />
+            </button>
         </form>
     }
-</div>
+</MarcoAcceso>
 
 @code {
     private string _token = string.Empty;

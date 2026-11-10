@@ -4,12 +4,16 @@
 
 <PageTitle>Mi día · Procu360</PageTitle>
 
-<h1 class="h3 mb-1">Mi día</h1>
-<p class="text-muted mb-4">@Hoy.ToString("dd/MM/yyyy") · alcance según tu rol en el Estudio</p>
+<div class="encabezado-pagina">
+    <div>
+        <h1>Mi día</h1>
+        <p class="bajada">@FechaLarga · lo que hay que trabajar hoy</p>
+    </div>
+</div>
 
 @if (_resumen is null)
 {
-    <p>Cargando…</p>
+    <p class="text-muted">Cargando…</p>
 }
 else if (_resumen.SinAlcance)
 {
@@ -17,84 +21,154 @@ else if (_resumen.SinAlcance)
 }
 else
 {
-    <div class="row g-3 mb-4">
-        <Tarjeta Titulo="Vencimientos hoy" Valor="@_resumen.VencimientosHoy" Detalle="@($"{_resumen.VencimientosVencidos} vencidos")" />
-        <Tarjeta Titulo="Novedades sin revisar" Valor="@_resumen.NovedadesSinRevisar" />
-        <Tarjeta Titulo="Etapas vencidas" Valor="@_resumen.EtapasVencidas" />
-        <Tarjeta Titulo="Sin movimiento" Valor="@_resumen.SinMovimiento" Detalle="@($"más de {_resumen.DiasSinMovimiento} días")" />
-        <Tarjeta Titulo="Perención próxima" Valor="@_resumen.PerencionProxima" Detalle="@($"alerta a {_resumen.DiasAlertaPerencion} días")" />
+    <div class="grilla-kpi">
+        <Tarjeta Titulo="Vencimientos hoy" Valor="@_resumen.VencimientosHoy" Simbolo="reloj" Tono="rojo" Alerta="true"
+                 Detalle="@($"{_resumen.VencimientosVencidos} vencidos")" />
+        <Tarjeta Titulo="Novedades sin revisar" Valor="@_resumen.NovedadesSinRevisar" Simbolo="novedades" Tono="azul" />
+        <Tarjeta Titulo="Etapas vencidas" Valor="@_resumen.EtapasVencidas" Simbolo="alerta" Tono="rojo" Alerta="true" />
+        <Tarjeta Titulo="Sin movimiento" Valor="@_resumen.SinMovimiento" Simbolo="pausa" Tono="ambar"
+                 Detalle="@($"más de {_resumen.DiasSinMovimiento} días")" />
+        <Tarjeta Titulo="Perención próxima" Valor="@_resumen.PerencionProxima" Simbolo="reloj-arena" Tono="celeste"
+                 Detalle="@($"alerta a {_resumen.DiasAlertaPerencion} días")" />
     </div>
 
-    <h2 class="h5">Vencimientos y tareas</h2>
-    @if (_resumen.Tareas.Count == 0)
-    {
-        <p class="text-muted">No hay tareas pendientes para hoy.</p>
-    }
-    else
-    {
-        <table class="table table-sm mb-4">
-            <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th></tr></thead>
-            <tbody>
-                @foreach (var t in _resumen.Tareas)
-                {
-                    <tr>
-                        <td>@t.Vence.ToString("dd/MM/yyyy")</td>
-                        <td>@t.Titulo</td>
-                        <td>@(t.ExpedienteId is long eid && t.NroOrden is int n ? new MarkupString($"<a href=\"/expedientes/{eid}\">{n:D5}</a>") : (MarkupString)"—")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+    <div class="columnas">
+        <section class="tarjeta principal entrar" aria-labelledby="titulo-tareas">
+            <div class="cabecera-tarjeta">
+                <h2 id="titulo-tareas">Vencimientos y tareas</h2>
+                <a href="/tareas/calendario">Ver calendario</a>
+            </div>
+            @if (_resumen.Tareas.Count == 0)
+            {
+                <p class="text-muted mb-0">No hay tareas pendientes para hoy.</p>
+            }
+            else
+            {
+                <div class="tabla-contenedor">
+                    <table class="table">
+                        <thead><tr><th>Expediente</th><th>Tarea</th><th>Vence</th></tr></thead>
+                        <tbody>
+                            @foreach (var t in _resumen.Tareas)
+                            {
+                                <tr>
+                                    <td>
+                                        @if (t.ExpedienteId is long eid && t.NroOrden is int n)
+                                        {
+                                            <a href="/expedientes/@eid">@n.ToString("D5")</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>@t.Titulo</td>
+                                    <td>
+                                        @if (t.Vence == Hoy)
+                                        {
+                                            <span class="pastilla roja">Hoy</span>
+                                        }
+                                        else if (t.Vence < Hoy)
+                                        {
+                                            <span class="pastilla roja">Vencida · @t.Vence.ToString("dd/MM/yyyy")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="numero">@t.Vence.ToString("dd/MM/yyyy")</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
 
-    <h2 class="h5">Novedades sin revisar</h2>
-    @if (_resumen.Novedades.Count == 0)
-    {
-        <p class="text-muted">No hay novedades pendientes.</p>
-    }
-    else
-    {
-        <table class="table table-sm mb-4">
-            <thead><tr><th>Fecha</th><th>Novedad</th><th>Expediente</th></tr></thead>
-            <tbody>
-                @foreach (var n in _resumen.Novedades)
-                {
-                    <tr>
-                        <td>@n.Fecha.ToString("dd/MM/yyyy")</td>
-                        <td>@(n.Texto.Length > 120 ? n.Texto[..120] + "…" : n.Texto)</td>
-                        <td>@(n.ExpedienteId is long e ? e.ToString() : "Sin vincular")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+        <section class="tarjeta lateral entrar" aria-labelledby="titulo-novedades">
+            <div class="cabecera-tarjeta">
+                <h2 id="titulo-novedades">Novedades sin revisar</h2>
+                <a href="/novedades">Ver todas</a>
+            </div>
+            @if (_resumen.Novedades.Count == 0)
+            {
+                <p class="text-muted mb-0">No hay novedades pendientes.</p>
+            }
+            else
+            {
+                <div class="lista-novedades">
+                    @foreach (var n in _resumen.Novedades)
+                    {
+                        <a class="novedad-item" href="@(n.ExpedienteId is long e ? $"/expedientes/{e}" : "/novedades?p=sin-vincular")">
+                            <span class="punto @(n.ExpedienteId is null ? "sin-vincular" : "")" aria-hidden="true"></span>
+                            <span class="d-flex flex-column gap-1">
+                                <span class="meta">
+                                    @n.Fecha.ToString("dd/MM/yyyy")
+                                    @if (n.ExpedienteId is null)
+                                    {
+                                        <span> · </span><span class="fw-semibold" style="color: var(--p-ambar-texto)">sin expediente vinculado</span>
+                                    }
+                                </span>
+                                <span class="texto-novedad">@(n.Texto.Length > 120 ? n.Texto[..120] + "…" : n.Texto)</span>
+                            </span>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+    </div>
 
-    <h2 class="h5">Perención</h2>
-    @if (_resumen.Perenciones.Count == 0)
-    {
-        <p class="text-muted">Ningún expediente vence su perención dentro de @_resumen.DiasAlertaPerencion días.</p>
-    }
-    else
-    {
-        <table class="table table-sm">
-            <thead><tr><th>Expediente</th><th>Último corte</th><th>Vence</th></tr></thead>
-            <tbody>
-                @foreach (var p in _resumen.Perenciones)
-                {
-                    <tr class="@(p.Vence < Hoy ? "table-danger" : "")">
-                        <td>@p.NroOrden.ToString("D5")</td>
-                        <td>@p.UltimoCorte.ToString("dd/MM/yyyy")</td>
-                        <td>@p.Vence.ToString("dd/MM/yyyy")@(p.Vence < Hoy ? " · vencida" : "")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+    <section class="tarjeta entrar" aria-labelledby="titulo-perencion">
+        <div class="cabecera-tarjeta">
+            <h2 id="titulo-perencion">Perención</h2>
+        </div>
+        @if (_resumen.Perenciones.Count == 0)
+        {
+            <p class="text-muted mb-0">Ningún expediente vence su perención dentro de @_resumen.DiasAlertaPerencion días.</p>
+        }
+        else
+        {
+            <div class="tabla-contenedor">
+                <table class="table">
+                    <thead><tr><th>Expediente</th><th>Último corte</th><th>Vence</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in _resumen.Perenciones)
+                        {
+                            <tr>
+                                <td><a href="/expedientes/@p.ExpedienteId">@p.NroOrden.ToString("D5")</a></td>
+                                <td class="numero">@p.UltimoCorte.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    @if (p.Vence < Hoy)
+                                    {
+                                        <span class="pastilla roja">Vencida · @p.Vence.ToString("dd/MM/yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pastilla ambar">@p.Vence.ToString("dd/MM/yyyy")</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
 }
 
 @code {
+    private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
     private static DateOnly Hoy => Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
     private Procu360.Infraestructura.MiDia.MiDiaResumen? _resumen;
+
+    /// <summary>"Lunes 10 de noviembre": el día en palabras, con mayúscula inicial.</summary>
+    private static string FechaLarga
+    {
+        get
+        {
+            var texto = Hoy.ToString("dddd d 'de' MMMM", Argentina);
+            return char.ToUpper(texto[0], Argentina) + texto[1..];
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

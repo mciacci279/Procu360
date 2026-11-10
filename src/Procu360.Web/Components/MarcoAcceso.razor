@@ -1,0 +1,43 @@
+@* Marco de las pantallas sin sesión (ingreso, invitación): panel de marca animado y formulario.
+   Solo CSS: funciona igual en páginas estáticas, sin interactividad. *@
+<div class="acceso">
+    <section class="acceso-marca" aria-label="Procu360">
+        <span class="resplandor uno" aria-hidden="true"></span>
+        <span class="resplandor dos" aria-hidden="true"></span>
+
+        <div>
+            <span class="logo-acceso" role="img" aria-label="Procu360">
+                <span aria-hidden="true">P</span><span class="logo-rocu" aria-hidden="true">rocu</span><span class="logo-360" aria-hidden="true">360</span>
+            </span>
+            <p class="lema">Procuración fiscal, ordenada y a tiempo.</p>
+            <p class="bajada">Expedientes, plazos, novedades y tareas del Estudio en un solo lugar.</p>
+        </div>
+
+        <ul class="acceso-virtudes">
+            <li>
+                <span class="icono-tono"><Icono Nombre="reloj" Tamano="18" Grosor="2" /></span>
+                Plazos en días hábiles, con feriados nacionales y provinciales.
+            </li>
+            <li>
+                <span class="latido" aria-hidden="true"><span></span></span>
+                La etapa actual de cada expediente, siempre a la vista.
+            </li>
+            <li>
+                <span class="icono-tono"><Icono Nombre="escudo" Tamano="18" Grosor="2" /></span>
+                Cada Estudio ve solo lo suyo, con permisos por rol.
+            </li>
+        </ul>
+
+        <p class="acceso-pie mb-0">© @DateTime.Now.Year Procu360</p>
+    </section>
+
+    <div class="acceso-formulario">
+        <div class="tarjeta-acceso">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = null!;
+}
