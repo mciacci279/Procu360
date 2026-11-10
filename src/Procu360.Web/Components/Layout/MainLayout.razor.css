@@ -1,0 +1,43 @@
+.contenedor-app {
+    display: flex;
+    min-height: 100vh;
+}
+
+.area {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.barra-superior {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .5rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
+}
+
+.boton-menu-movil {
+    display: none;
+}
+
+.contenido {
+    padding: 1.5rem;
+    min-width: 0;
+}
+
+.contenido-publico {
+    min-height: 100vh;
+}
+
+@media (max-width: 767px) {
+    .boton-menu-movil {
+        display: inline-block;
+    }
+
+    .contenido {
+        padding: 1rem;
+    }
+}

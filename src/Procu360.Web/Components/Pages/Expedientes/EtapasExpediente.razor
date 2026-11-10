@@ -1,0 +1,97 @@
+@rendermode InteractiveServer
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject Procu360.Infraestructura.Etapas.ServicioEtapas Etapas
+@inject ServicioPermisos Autorizacion
+
+@* Todas las consultas de este componente van en secuencia (OnInitializedAsync y los manejadores de eventos);
+   el hijo RegistrarEtapa no consulta la base. Así no se usa el DbContext en paralelo. *@
+
+<RegistrarEtapa ExpedienteId="ExpedienteId" Puede="_puedeEditar" Catalogo="_catalogo" Registrado="RecargarAsync" />
+
+@if (_mensaje is not null)
+{
+    <div class="alert @(_exito ? "alert-success" : "alert-danger") py-2" role="status">@_mensaje</div>
+}
+
+@if (_filas is null)
+{
+    <p>Cargando…</p>
+}
+else if (_filas.Count == 0)
+{
+    <p class="text-muted">Todavía no hay etapas registradas.</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead><tr><th>Etapa</th><th>Inicio</th><th>Vence</th><th>Estado</th><th class="text-end">Monto</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var e in _filas)
+            {
+                <tr>
+                    <td>
+                        @e.Nombre
+                        @if (e.EsDiligencia) { <span class="badge text-bg-info ms-1">Diligencia</span> }
+                        @if (e.Flujo == 2) { <span class="badge text-bg-secondary ms-1">Cautelar</span> }
+                        @if (!string.IsNullOrEmpty(e.Observaciones)) { <div class="small text-muted">@e.Observaciones</div> }
+                    </td>
+                    <td>@e.Inicio.ToString("dd/MM/yyyy")</td>
+                    <td>@(e.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                    <td>@NombreEstado(e.Estado)</td>
+                    <td class="text-end">@(e.Monto is decimal m ? m.ToString("C2", Argentina) : "—")</td>
+                    <td class="text-nowrap">
+                        @if (_puedeEditar && e.Estado == 1)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => CambiarAsync(e.Id, 2)">Cumplimentar</button>
+                            <button class="btn btn-sm btn-outline-warning" @onclick="() => CambiarAsync(e.Id, 3)">Suspender</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter, EditorRequired] public long ExpedienteId { get; set; }
+
+    private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
+    private bool _puedeEditar;
+    private bool _exito;
+    private string? _mensaje;
+    private IReadOnlyList<(int Id, string Nombre, byte Flujo)> _catalogo = [];
+    private IReadOnlyList<Procu360.Infraestructura.Etapas.FilaEtapa>? _filas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
+        _puedeEditar = await Autorizacion.TieneAsync("expedientes.editar");
+        _catalogo = _puedeEditar ? await Etapas.CatalogoAsync() : [];
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync() => _filas = await Etapas.ListarAsync(ExpedienteId);
+
+    private async Task RecargarAsync()
+    {
+        Autorizacion.Invalidar();
+        _mensaje = "Etapa registrada.";
+        _exito = true;
+        await CargarAsync();
+    }
+
+    private async Task CambiarAsync(long etapaExpedienteId, byte nuevoEstado)
+    {
+        var r = await Etapas.CambiarEstadoAsync(etapaExpedienteId, nuevoEstado);
+        _exito = r.Exito;
+        _mensaje = r.Exito ? "Estado de la etapa actualizado." : r.Error;
+        await CargarAsync();
+    }
+
+    private static string NombreEstado(byte estado) => estado switch
+    {
+        1 => "Alta", 2 => "Cumplimentada", 3 => "Suspendida", 4 => "Baja", _ => "—"
+    };
+}

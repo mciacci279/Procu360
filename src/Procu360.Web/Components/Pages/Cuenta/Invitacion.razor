@@ -1,0 +1,44 @@
+@page "/cuenta/invitacion"
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+
+<PageTitle>Aceptar invitación · Procu360</PageTitle>
+
+<div class="container py-5" style="max-width: 420px;">
+    <h1 class="h3 mb-4">Aceptar invitación</h1>
+
+    @if (Error is not null)
+    {
+        <div class="alert alert-danger" role="alert">@Error</div>
+    }
+
+    @if (U is null || string.IsNullOrEmpty(T))
+    {
+        <div class="alert alert-warning" role="alert">El enlace de invitación está incompleto. Pedí uno nuevo a tu administrador.</div>
+    }
+    else
+    {
+        <p>Elegí una contraseña para tu cuenta. Debe tener al menos 10 caracteres, con mayúsculas, minúsculas y números.</p>
+        <form method="post" action="/cuenta/invitacion">
+            <input type="hidden" name="__RequestVerificationToken" value="@_token" />
+            <input type="hidden" name="usuarioId" value="@U" />
+            <input type="hidden" name="token" value="@T" />
+            <div class="mb-3">
+                <label class="form-label" for="clave">Nueva contraseña</label>
+                <input class="form-control" id="clave" name="clave" type="password" required autocomplete="new-password" />
+            </div>
+            <button class="btn btn-primary w-100" type="submit">Aceptar y activar</button>
+        </form>
+    }
+</div>
+
+@code {
+    private string _token = string.Empty;
+
+    protected override void OnInitialized() =>
+        _token = Antiforgery.GetAndStoreTokens(Http.HttpContext!).RequestToken ?? string.Empty;
+
+    [SupplyParameterFromQuery(Name = "u")] public int? U { get; set; }
+    [SupplyParameterFromQuery(Name = "t")] public string? T { get; set; }
+    [SupplyParameterFromQuery(Name = "error")] public string? Error { get; set; }
+}

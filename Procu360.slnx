@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Procu360.Dominio/Procu360.Dominio.csproj" />
+    <Project Path="src/Procu360.Infraestructura/Procu360.Infraestructura.csproj" />
+    <Project Path="src/Procu360.Migracion/Procu360.Migracion.csproj" />
+    <Project Path="src/Procu360.Web/Procu360.Web.csproj" />
+    <Project Path="tests/Procu360.Aislamiento.Tests/Procu360.Aislamiento.Tests.csproj" />
+    <Project Path="tests/Procu360.E2E/Procu360.E2E.csproj" />
+    <Project Path="tests/Procu360.Integracion.Tests/Procu360.Integracion.Tests.csproj" />
+    <Project Path="tests/Procu360.Liquidacion.Tests/Procu360.Liquidacion.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Procu360.Dominio.Tests/Procu360.Dominio.Tests.csproj" />
+  </Folder>
+</Solution>

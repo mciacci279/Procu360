@@ -1,0 +1,164 @@
+@page "/estudio/usuarios"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject ServicioPermisos Autorizacion
+@inject ServicioAdministracionEstudio Administracion
+
+<PageTitle>Usuarios del Estudio · Procu360</PageTitle>
+
+<h1 class="h3 mb-3">Usuarios del Estudio</h1>
+
+@if (!_cargado)
+{
+    <p>Cargando…</p>
+}
+else if (!_puedeAdministrar)
+{
+    <div class="alert alert-warning" role="alert">No tenés permiso para administrar usuarios y roles de este Estudio.</div>
+}
+else
+{
+    @if (_mensaje is not null)
+    {
+        <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
+    }
+
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Persona</th><th>Email</th><th>Estado</th><th>Roles</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var m in _membresias)
+                {
+                    <tr>
+                        <td>@m.NombreCompleto</td>
+                        <td>@m.Email</td>
+                        <td>@NombreEstado(m.Estado)</td>
+                        <td>
+                            @foreach (var a in m.Roles)
+                            {
+                                <span class="badge text-bg-secondary me-1">
+                                    @a.NombreRol@(a.ComitenteId is int c ? $" · comitente {c}" : "")
+                                    <button class="btn btn-link btn-sm p-0 ms-1 text-white" title="Quitar rol"
+                                            @onclick="() => QuitarAsync(a.AsignacionId)">✕</button>
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            @if (m.Estado == 3)
+                            {
+                                <button class="btn btn-outline-danger btn-sm" @onclick="() => DesactivarAsync(m.MembresiaId)">Desactivar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card p-3" style="max-width: 640px;">
+        <h2 class="h5">Asignar rol</h2>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label" for="membresia">Persona</label>
+                <select id="membresia" class="form-select" @bind="_membresiaElegida">
+                    <option value="0">Elegí…</option>
+                    @foreach (var m in _membresias.Where(x => x.Estado == 3))
+                    {
+                        <option value="@m.MembresiaId">@m.NombreCompleto</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="rol">Rol</label>
+                <select id="rol" class="form-select" @bind="_rolElegido">
+                    <option value="0">Elegí…</option>
+                    @foreach (var r in _roles)
+                    {
+                        <option value="@r.Id">@r.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="comitente">Comitente</label>
+                <input id="comitente" class="form-control" type="number" min="1" @bind="_comitenteElegido" />
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-primary w-100" @onclick="AsignarAsync">+</button>
+            </div>
+        </div>
+        <div class="form-text">El comitente solo se completa para roles con ámbito por comitente.</div>
+    </div>
+}
+
+@code {
+    private bool _cargado;
+    private bool _puedeAdministrar;
+    private IReadOnlyList<VistaMembresia> _membresias = [];
+    private IReadOnlyList<VistaRol> _roles = [];
+    private int _membresiaElegida;
+    private int _rolElegido;
+    private int? _comitenteElegido;
+    private string? _mensaje;
+    private bool _exito;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        SesionContexto.Aplicar(estado.User, Contexto);
+        _puedeAdministrar = await Autorizacion.TieneAsync(Procu360.Dominio.Seguridad.Permisos.UsuariosAdministrar);
+        if (_puedeAdministrar) await CargarAsync();
+        _cargado = true;
+    }
+
+    private async Task CargarAsync()
+    {
+        _membresias = await Administracion.ListarMembresiasAsync();
+        _roles = await Administracion.ListarRolesAsync();
+    }
+
+    private async Task AsignarAsync()
+    {
+        if (_membresiaElegida == 0 || _rolElegido == 0)
+        {
+            Informar(false, "Elegí una persona y un rol.");
+            return;
+        }
+        var resultado = await Administracion.AsignarRolAsync(_membresiaElegida, _rolElegido, _comitenteElegido);
+        Informar(resultado.Exito, resultado.Exito ? "Rol asignado." : resultado.Error);
+        if (resultado.Exito) { Autorizacion.Invalidar(); await CargarAsync(); }
+    }
+
+    private async Task QuitarAsync(int asignacionId)
+    {
+        var resultado = await Administracion.QuitarRolAsync(asignacionId);
+        Informar(resultado.Exito, resultado.Exito ? "Rol quitado." : resultado.Error);
+        if (resultado.Exito) { Autorizacion.Invalidar(); await CargarAsync(); }
+    }
+
+    private async Task DesactivarAsync(int membresiaId)
+    {
+        var resultado = await Administracion.DesactivarMembresiaAsync(membresiaId);
+        Informar(resultado.Exito, resultado.Exito ? "Membresía desactivada." : resultado.Error);
+        if (resultado.Exito) { Autorizacion.Invalidar(); await CargarAsync(); }
+    }
+
+    private void Informar(bool exito, string? texto)
+    {
+        _exito = exito;
+        _mensaje = texto;
+    }
+
+    private static string NombreEstado(byte estado) => estado switch
+    {
+        1 => "Invitado",
+        2 => "Pendiente de aprobación",
+        3 => "Activo",
+        4 => "Desactivado",
+        5 => "Rechazado",
+        _ => "Desconocido"
+    };
+}

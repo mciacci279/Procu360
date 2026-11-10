@@ -1,0 +1,28 @@
+﻿@inherits LayoutComponentBase
+@inject IHostEnvironment Entorno
+
+<AuthorizeView>
+    <Authorized>
+        <input type="checkbox" id="menu-movil" class="d-none" aria-hidden="true" />
+        <div class="contenedor-app">
+            <BarraLateral />
+            <div class="area">
+                <header class="barra-superior">
+                    <label for="menu-movil" class="btn btn-outline-secondary btn-sm boton-menu-movil" title="Menú">☰ Menú</label>
+                    @if (Entorno.IsDevelopment())
+                    {
+                        <span class="badge text-bg-warning">Desarrollo · datos de prueba</span>
+                    }
+                </header>
+                <main class="contenido">
+                    @Body
+                </main>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <main class="contenido-publico">
+            @Body
+        </main>
+    </NotAuthorized>
+</AuthorizeView>

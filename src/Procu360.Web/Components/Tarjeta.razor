@@ -1,0 +1,18 @@
+<div class="col-6 col-md-4 col-xl">
+    <div class="card h-100 shadow-sm">
+        <div class="card-body">
+            <div class="small text-uppercase text-muted">@Titulo</div>
+            <div class="display-6 fw-semibold">@Valor</div>
+            @if (!string.IsNullOrEmpty(Detalle))
+            {
+                <div class="small text-muted">@Detalle</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public int Valor { get; set; }
+    [Parameter] public string? Detalle { get; set; }
+}

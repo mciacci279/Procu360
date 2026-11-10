@@ -1,0 +1,58 @@
+@page "/cuenta/estudio"
+@attribute [Authorize]
+@inject Procu360.Infraestructura.Identidad.ServicioSesion Sesion
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+
+<PageTitle>Elegir Estudio · Procu360</PageTitle>
+
+<div class="container py-5" style="max-width: 520px;">
+    <h1 class="h3 mb-4">Elegí un Estudio</h1>
+
+    @if (Error == "estudio")
+    {
+        <div class="alert alert-danger" role="alert">No tenés acceso activo a ese Estudio.</div>
+    }
+    else if (Error == "formulario")
+    {
+        <div class="alert alert-danger" role="alert">El formulario venció. Intentá de nuevo.</div>
+    }
+
+    @if (_membresias is { Count: > 0 })
+    {
+        <form method="post" action="/cuenta/elegir-estudio">
+            <input type="hidden" name="__RequestVerificationToken" value="@_token" />
+            @foreach (var m in _membresias)
+            {
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="estudioId" id="e@(m.EstudioId)" value="@m.EstudioId" required />
+                    <label class="form-check-label" for="e@(m.EstudioId)">@m.NombreEstudio</label>
+                </div>
+            }
+            <button class="btn btn-primary mt-3" type="submit">Continuar</button>
+        </form>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
+
+    private IReadOnlyList<Procu360.Infraestructura.Identidad.MembresiaActiva>? _membresias;
+    private string _token = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (EstadoAutenticacion is null) return;
+        var estado = await EstadoAutenticacion;
+        var usuarioId = Procu360.Infraestructura.Identidad.SesionContexto.UsuarioId(estado.User);
+        if (usuarioId is null) return;
+
+        // Token generado desde la request HTTP (con la identidad del usuario logueado), no desde el componente.
+        _token = Antiforgery.GetAndStoreTokens(Http.HttpContext!).RequestToken ?? string.Empty;
+
+        // El middleware ya dejó el contexto de solo usuario (la sesión todavía no eligió Estudio).
+        _membresias = await Sesion.MembresiasActivasAsync(usuarioId.Value);
+    }
+}

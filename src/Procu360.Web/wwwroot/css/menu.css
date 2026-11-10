@@ -1,0 +1,111 @@
+/* Barra lateral de Procu360 (docs/02 §2.1): 248 px expandida, 64 px plegada, oculta en pantallas chicas. */
+
+.barra {
+    width: 248px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    background: #1f3a5f;
+    color: #fff;
+    transition: width .2s ease;
+}
+
+.barra.plegada {
+    width: 64px;
+}
+
+.barra .texto {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.barra.plegada .texto {
+    display: none;
+}
+
+.barra .cabecera-barra {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem .9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, .15);
+}
+
+.barra .cabecera-barra .boton-plegar {
+    color: #fff;
+    border: 0;
+    background: transparent;
+    padding: .25rem;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.barra .marca {
+    font-weight: 600;
+}
+
+.barra nav {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.barra .grupo {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    opacity: .7;
+    padding: .9rem .9rem .25rem;
+}
+
+.barra .item {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .9rem;
+    color: #fff;
+    text-decoration: none;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+
+.barra .item:hover,
+.barra .item:focus-visible {
+    background: rgba(255, 255, 255, .12);
+    outline: 2px solid #9ec5fe;
+    outline-offset: -2px;
+}
+
+.barra .pie {
+    border-top: 1px solid rgba(255, 255, 255, .15);
+    padding: .75rem .9rem;
+    font-size: .85rem;
+}
+
+.barra .pie .item {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+@media (max-width: 767px) {
+    .barra {
+        position: fixed;
+        z-index: 1040;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 248px;
+        transform: translateX(-100%);
+        transition: transform .2s ease;
+    }
+
+    .barra.plegada .texto {
+        display: inline;
+    }
+
+    #menu-movil:checked + .contenedor-app .barra {
+        transform: translateX(0);
+    }
+}

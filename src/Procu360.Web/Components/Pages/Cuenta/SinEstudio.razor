@@ -1,0 +1,22 @@
+﻿@page "/cuenta/sin-estudio"
+@attribute [Authorize]
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+
+<PageTitle>Sin Estudio · Procu360</PageTitle>
+
+<div class="container py-5" style="max-width: 520px;">
+    <h1 class="h3 mb-3">No tenés Estudios activos</h1>
+    <p>Tu cuenta no tiene acceso a ningún Estudio todavía. Pedile a un administrador de tu Estudio que te envíe una invitación.</p>
+    <form method="post" action="/cuenta/salir">
+        <input type="hidden" name="__RequestVerificationToken" value="@_token" />
+        <button class="btn btn-outline-secondary" type="submit">Salir</button>
+    </form>
+</div>
+
+@code {
+    private string _token = string.Empty;
+
+    protected override void OnInitialized() =>
+        _token = Antiforgery.GetAndStoreTokens(Http.HttpContext!).RequestToken ?? string.Empty;
+}

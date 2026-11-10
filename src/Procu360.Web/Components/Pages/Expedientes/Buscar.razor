@@ -1,0 +1,155 @@
+@page "/expedientes"
+@attribute [Authorize(Policy = "expedientes.consultar")]
+@inject Procu360.Infraestructura.Expedientes.ServicioBusquedaExpedientes Busqueda
+
+<PageTitle>Expedientes · Procu360</PageTitle>
+
+<h1 class="h3 mb-3">Expedientes</h1>
+
+<form method="get" action="/expedientes" class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-lg-6">
+            <label class="form-label" for="q">Buscar</label>
+            <input id="q" name="q" class="form-control" value="@Q" autofocus
+                   placeholder="Nro de orden, expediente judicial, DNI/CUIT, liquidación, cuenta, dominio, nomenclatura o carátula" />
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <label class="form-label" for="comitente">Comitente</label>
+            <select id="comitente" name="comitente" class="form-select">
+                <option value="">Todos</option>
+                @foreach (var c in _comitentes)
+                {
+                    <option value="@c.Id" selected="@(Comitente == c.Id)">@c.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <label class="form-label" for="instancia">Instancia</label>
+            <select id="instancia" name="instancia" class="form-select">
+                <option value="">Todas</option>
+                @foreach (var i in _instancias)
+                {
+                    <option value="@i.Id" selected="@(Instancia == i.Id)">@i.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4 col-lg-2 d-flex gap-3">
+            <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox" id="sinMov" name="sinMov" value="true" checked="@(SinMov == true)" />
+                <label class="form-check-label" for="sinMov">Sin movimiento</label>
+            </div>
+            <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox" id="bajas" name="bajas" value="true" checked="@(Bajas == true)" />
+                <label class="form-check-label" for="bajas">Dados de baja</label>
+            </div>
+        </div>
+    </div>
+    <div class="mt-3">
+        <button class="btn btn-primary" type="submit">Buscar</button>
+        <a class="btn btn-outline-secondary" href="/expedientes">Limpiar</a>
+    </div>
+</form>
+
+@if (_resultado is null)
+{
+    <p class="text-muted">Escribí algo o elegí un filtro.</p>
+}
+else if (_resultado.Total == 0)
+{
+    <div class="alert alert-secondary" role="status">No hay expedientes que coincidan con la búsqueda en tu alcance.</div>
+}
+else
+{
+    <p class="text-muted">@_resultado.Total expedientes · página @_resultado.Pagina de @_resultado.Paginas</p>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Nro orden</th>
+                    <th>Expediente judicial</th>
+                    <th>Carátula</th>
+                    <th>Demandado</th>
+                    <th>Concepto</th>
+                    <th>Instancia</th>
+                    <th>Última etapa</th>
+                    <th>Último movimiento</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in _resultado.Filas)
+                {
+                    <tr class="@(f.Anulado ? "text-muted text-decoration-line-through" : "")">
+                        <td><a href="/expedientes/@f.Id">@f.NroOrden.ToString("D5")</a></td>
+                        <td>@(f.NroExpedienteJudicial ?? "—")</td>
+                        <td>@(f.Caratula ?? "—")</td>
+                        <td>@(f.Demandado ?? "—")</td>
+                        <td>@(f.Concepto ?? "—")</td>
+                        <td>@(f.Instancia ?? "—")</td>
+                        <td>@(f.UltimaEtapa ?? "—")</td>
+                        <td>@(f.FechaUltimoMovimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_resultado.Paginas > 1)
+    {
+        <nav aria-label="Paginación">
+            <ul class="pagination">
+                @if (_resultado.Pagina > 1)
+                {
+                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina - 1)">Anterior</a></li>
+                }
+                <li class="page-item disabled"><span class="page-link">@_resultado.Pagina / @_resultado.Paginas</span></li>
+                @if (_resultado.Pagina < _resultado.Paginas)
+                {
+                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina + 1)">Siguiente</a></li>
+                }
+            </ul>
+        </nav>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
+    [SupplyParameterFromQuery(Name = "comitente")] public int? Comitente { get; set; }
+    [SupplyParameterFromQuery(Name = "instancia")] public int? Instancia { get; set; }
+    [SupplyParameterFromQuery(Name = "sinMov")] public bool? SinMov { get; set; }
+    [SupplyParameterFromQuery(Name = "bajas")] public bool? Bajas { get; set; }
+    [SupplyParameterFromQuery(Name = "pagina")] public int? Pagina { get; set; }
+
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _comitentes = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _instancias = [];
+    private Procu360.Infraestructura.Expedientes.ResultadoBusqueda? _resultado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _comitentes = await Busqueda.ComitentesAsync();
+        _instancias = await Busqueda.InstanciasAsync();
+
+        var hayCriterio = !string.IsNullOrWhiteSpace(Q) || Comitente is not null || Instancia is not null
+            || SinMov == true || Bajas == true;
+        if (!hayCriterio) return;
+
+        _resultado = await Busqueda.BuscarAsync(new Procu360.Infraestructura.Expedientes.CriteriosBusqueda(
+            Texto: Q,
+            ComitenteId: Comitente,
+            InstanciaId: Instancia,
+            SinMovimiento: SinMov == true,
+            IncluirDadosDeBaja: Bajas == true,
+            Pagina: Pagina ?? 1));
+    }
+
+    private string Enlace(int pagina)
+    {
+        var partes = new List<string> { $"pagina={pagina}" };
+        if (!string.IsNullOrWhiteSpace(Q)) partes.Add($"q={Uri.EscapeDataString(Q)}");
+        if (Comitente is int c) partes.Add($"comitente={c}");
+        if (Instancia is int i) partes.Add($"instancia={i}");
+        if (SinMov == true) partes.Add("sinMov=true");
+        if (Bajas == true) partes.Add("bajas=true");
+        return "/expedientes?" + string.Join("&", partes);
+    }
+}

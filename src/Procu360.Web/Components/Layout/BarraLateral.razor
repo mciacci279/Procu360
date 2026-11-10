@@ -1,0 +1,165 @@
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject IServiceScopeFactory Ambitos
+@inject IJSRuntime Js
+
+<aside class="barra @(_plegada ? "plegada" : "")" aria-label="Navegación principal">
+    <div class="cabecera-barra">
+        <button type="button" class="boton-plegar" aria-expanded="@(!_plegada)"
+                title="@(_plegada ? "Expandir menú" : "Plegar menú") ( [ )"
+                @onclick="AlternarAsync">
+            <span aria-hidden="true">☰</span>
+            <span class="visually-hidden">@(_plegada ? "Expandir menú" : "Plegar menú")</span>
+        </button>
+        <span class="marca texto">Procu360</span>
+    </div>
+
+    <nav>
+        <div class="grupo texto">Trabajo diario</div>
+        <a class="item" href="/" title="Inicio">
+            <span aria-hidden="true">⌂</span><span class="texto">Inicio</span>
+        </a>
+        @if (_puedeConsultarExpedientes)
+        {
+            <a class="item" href="expedientes" title="Expedientes">
+                <span aria-hidden="true">▤</span><span class="texto">Expedientes</span>
+            </a>
+        }
+        @if (_puedeConsultarTareas)
+        {
+            <a class="item" href="tareas" title="Tareas y agenda">
+                <span aria-hidden="true">☑</span><span class="texto">Tareas</span>
+            </a>
+        }
+        @if (_puedeConsultarNovedades)
+        {
+            <a class="item" href="novedades" title="Novedades">
+                <span aria-hidden="true">✎</span><span class="texto">Novedades</span>
+            </a>
+        }
+
+        @if (_puedeInvitar || _puedeAdministrar)
+        {
+            <div class="grupo texto">Administración</div>
+            @if (_puedeInvitar)
+            {
+                <a class="item" href="estudio/invitaciones" title="Invitaciones">
+                    <span aria-hidden="true">✉</span><span class="texto">Invitaciones</span>
+                </a>
+            }
+            @if (_puedeAdministrar)
+            {
+                <a class="item" href="estudio/usuarios" title="Usuarios del Estudio">
+                    <span aria-hidden="true">👥</span><span class="texto">Usuarios</span>
+                </a>
+                <a class="item" href="estudio/roles" title="Roles y permisos">
+                    <span aria-hidden="true">🔑</span><span class="texto">Roles y permisos</span>
+                </a>
+            }
+        }
+    </nav>
+
+    <div class="pie">
+        @if (_perfil is not null)
+        {
+            <div class="texto fw-semibold">@_perfil.NombreCompleto</div>
+            <div class="texto small">@_perfil.NombreEstudio</div>
+            <div class="texto small opacity-75">@string.Join(", ", _perfil.Roles)</div>
+        }
+        else
+        {
+            <a class="texto small text-white" href="cuenta/estudio">Elegir Estudio</a>
+        }
+        <form method="post" action="/cuenta/salir" class="mt-2">
+            <AntiforgeryToken />
+            <button type="submit" class="item">
+                <span aria-hidden="true">⏻</span><span class="texto">Salir</span>
+            </button>
+        </form>
+    </div>
+</aside>
+
+@code {
+    private bool _plegada;
+    private bool _puedeInvitar;
+    private bool _puedeAdministrar;
+    private bool _puedeConsultarExpedientes;
+    private bool _puedeConsultarNovedades;
+    private bool _puedeConsultarTareas;
+    private PerfilSesion? _perfil;
+    private int? _usuarioId;
+    private IJSObjectReference? _modulo;
+    private DotNetObjectReference<BarraLateral>? _referencia;
+
+    /// <summary>
+    /// Permisos y perfil se calculan en un ámbito propio, separado del de la página:
+    /// así no comparten DbContext con otros componentes de la misma circuito.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        if (estado.User.Identity?.IsAuthenticated != true) return;
+
+        await using var ambito = Ambitos.CreateAsyncScope();
+        var contexto = ambito.ServiceProvider.GetRequiredService<ContextoEstudio>();
+        if (!SesionContexto.Aplicar(estado.User, contexto)) return;
+
+        _usuarioId = SesionContexto.UsuarioId(estado.User);
+        var permisos = ambito.ServiceProvider.GetRequiredService<ServicioPermisos>();
+        _puedeInvitar = await permisos.TieneAsync(Procu360.Dominio.Seguridad.Permisos.UsuariosCrear);
+        _puedeAdministrar = await permisos.TieneAsync(Procu360.Dominio.Seguridad.Permisos.UsuariosAdministrar);
+        _puedeConsultarExpedientes = await permisos.TieneAsync("expedientes.consultar");
+        _puedeConsultarNovedades = await permisos.TieneAsync("novedades.consultar");
+        _puedeConsultarTareas = await permisos.TieneAsync("tareas.consultar");
+
+        if (SesionContexto.EstudioId(estado.User) is int estudio && _usuarioId is int usuario)
+        {
+            _perfil = await ambito.ServiceProvider.GetRequiredService<ServicioSesion>().PerfilAsync(usuario, estudio);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!primerRender || _usuarioId is null) return;
+
+        _modulo = await Js.InvokeAsync<IJSObjectReference>("import", "./js/menu.js");
+        var preferencia = await _modulo.InvokeAsync<string?>("leerPreferencia", ClavePreferencia);
+        // Sin preferencia guardada: plegada en pantallas menores de 1280 px (docs/02 §2.1).
+        _plegada = preferencia is null
+            ? await _modulo.InvokeAsync<int>("anchoVentana") < 1280
+            : preferencia == "1";
+
+        _referencia = DotNetObjectReference.Create(this);
+        await _modulo.InvokeVoidAsync("registrarAtajo", _referencia);
+        StateHasChanged();
+    }
+
+    private string ClavePreferencia => $"procu360.menu.{_usuarioId}";
+
+    private async Task AlternarAsync()
+    {
+        _plegada = !_plegada;
+        if (_modulo is not null)
+        {
+            await _modulo.InvokeVoidAsync("guardarPreferencia", ClavePreferencia, _plegada ? "1" : "0");
+        }
+    }
+
+    /// <summary>Llamado desde JavaScript con la tecla "[".</summary>
+    [JSInvokable]
+    public async Task AlternarDesdeAtajoAsync()
+    {
+        await AlternarAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _referencia?.Dispose();
+        if (_modulo is not null)
+        {
+            await _modulo.DisposeAsync();
+        }
+    }
+}

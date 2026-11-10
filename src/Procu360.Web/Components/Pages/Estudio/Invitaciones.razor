@@ -1,0 +1,110 @@
+@page "/estudio/invitaciones"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject ServicioInvitaciones Servicio
+@inject NavigationManager Navegacion
+
+<PageTitle>Invitaciones · Procu360</PageTitle>
+
+<h1 class="h3 mb-3">Invitar integrante</h1>
+<p class="text-muted">Desarrollo: el enlace se muestra acá porque todavía no hay envío de email.</p>
+
+<div class="card p-3 mb-4" style="max-width: 560px;">
+    <EditForm Model="_modelo" OnValidSubmit="InvitarAsync" FormName="invitar">
+        <DataAnnotationsValidator />
+        <div class="mb-2">
+            <label class="form-label" for="email">Email</label>
+            <InputText id="email" class="form-control" @bind-Value="_modelo.Email" />
+            <ValidationMessage For="() => _modelo.Email" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" for="nombre">Nombre</label>
+            <InputText id="nombre" class="form-control" @bind-Value="_modelo.Nombre" />
+            <ValidationMessage For="() => _modelo.Nombre" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="apellido">Apellido</label>
+            <InputText id="apellido" class="form-control" @bind-Value="_modelo.Apellido" />
+            <ValidationMessage For="() => _modelo.Apellido" />
+        </div>
+        <button class="btn btn-primary" type="submit" disabled="@_enviando">Crear invitación</button>
+    </EditForm>
+</div>
+
+@if (_mensaje is not null)
+{
+    <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
+}
+
+@if (_enlace is not null)
+{
+    <div class="card p-3" style="max-width: 560px;">
+        <div class="form-label">Enlace de invitación (válido 7 días, de un solo uso)</div>
+        <input class="form-control" readonly value="@_enlace" onclick="this.select()" />
+    </div>
+}
+
+@code {
+    private readonly ModeloInvitacion _modelo = new();
+    private string? _mensaje;
+    private string? _enlace;
+    private bool _exito;
+    private bool _enviando;
+
+    private async Task InvitarAsync()
+    {
+        _enviando = true;
+        _enlace = null;
+        try
+        {
+            var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+            if (!SesionContexto.Aplicar(estado.User, Contexto) || SesionContexto.EstudioId(estado.User) is null)
+            {
+                _exito = false;
+                _mensaje = "No hay un Estudio activo en tu sesión.";
+                return;
+            }
+
+            var adminId = SesionContexto.UsuarioId(estado.User)!.Value;
+            var resultado = await Servicio.InvitarAsync(
+                adminId, new DatosInvitacion(_modelo.Email, _modelo.Nombre, _modelo.Apellido));
+
+            switch (resultado.Tipo)
+            {
+                case TipoResultadoInvitacion.Creada:
+                    _exito = true;
+                    _mensaje = "Invitación creada.";
+                    var baseUrl = Navegacion.BaseUri.TrimEnd('/');
+                    _enlace = $"{baseUrl}/cuenta/invitacion?u={resultado.UsuarioId}&t={Uri.EscapeDataString(resultado.Token!)}";
+                    break;
+                case TipoResultadoInvitacion.Pendiente:
+                    _exito = true;
+                    _mensaje = "Invitación registrada. Queda pendiente de aprobación de la plataforma.";
+                    break;
+                default:
+                    _exito = false;
+                    _mensaje = resultado.Error ?? "No se pudo crear la invitación.";
+                    break;
+            }
+        }
+        finally
+        {
+            _enviando = false;
+        }
+    }
+
+    public sealed class ModeloInvitacion
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresá el email.")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "El email no es válido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresá el nombre.")]
+        public string Nombre { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresá el apellido.")]
+        public string Apellido { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,93 @@
+@rendermode InteractiveServer
+@inject Procu360.Infraestructura.Etapas.ServicioEtapas Etapas
+
+@* Sin consultas a la base: el padre (EtapasExpediente) carga el catálogo y los permisos antes de renderizarlo,
+   así nunca se usa el mismo DbContext en paralelo. *@
+
+@if (!Puede)
+{
+    <div class="alert alert-secondary" role="status">No tenés permiso para registrar etapas en este expediente.</div>
+}
+else
+{
+    <div class="card card-body mb-3">
+        <h2 class="h6 text-uppercase text-muted">Registrar etapa o diligencia</h2>
+        @if (_mensaje is not null)
+        {
+            <div class="alert @(_exito ? "alert-success" : "alert-danger") py-2" role="status">@_mensaje</div>
+        }
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" for="etapa">Etapa</label>
+                <select id="etapa" class="form-select" @bind="_etapaId">
+                    <option value="0">Elegí…</option>
+                    @foreach (var e in Catalogo)
+                    {
+                        <option value="@e.Id">@(e.Flujo == 2 ? "Cautelar · " : "")@e.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="fecha">Inicio</label>
+                <input id="fecha" class="form-control" type="date" @bind="_fecha" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="obs">Observaciones</label>
+                <input id="obs" class="form-control" @bind="_observaciones" maxlength="500" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="monto">Monto (opcional)</label>
+                <input id="monto" class="form-control" @bind="_monto" />
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-primary w-100" @onclick="RegistrarAsync">+</button>
+            </div>
+        </div>
+        <div class="form-text">El vencimiento se calcula en días hábiles con feriados cuando la etapa lo indica.</div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public long ExpedienteId { get; set; }
+    [Parameter, EditorRequired] public bool Puede { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<(int Id, string Nombre, byte Flujo)> Catalogo { get; set; } = [];
+    [Parameter] public EventCallback Registrado { get; set; }
+
+    private bool _exito;
+    private string? _mensaje;
+    private int _etapaId;
+    private DateOnly _fecha = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
+    private string _observaciones = string.Empty;
+    private string _monto = string.Empty;
+
+    private async Task RegistrarAsync()
+    {
+        if (_etapaId == 0)
+        {
+            Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion.Fallo("Elegí una etapa."));
+            return;
+        }
+        decimal? monto = null;
+        if (!string.IsNullOrWhiteSpace(_monto))
+        {
+            if (!decimal.TryParse(_monto.Replace(".", "").Replace(',', '.'), System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out var m))
+            {
+                Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion.Fallo("El monto no es válido."));
+                return;
+            }
+            monto = m;
+        }
+
+        var r = await Etapas.RegistrarAsync(ExpedienteId, _etapaId, _fecha, _observaciones, monto);
+        if (r.Exito) { _observaciones = string.Empty; _monto = string.Empty; _etapaId = 0; }
+        Informar(r);
+        if (r.Exito) await Registrado.InvokeAsync();
+    }
+
+    private void Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion r)
+    {
+        _exito = r.Exito;
+        _mensaje = r.Exito ? "Etapa registrada." : r.Error;
+    }
+}

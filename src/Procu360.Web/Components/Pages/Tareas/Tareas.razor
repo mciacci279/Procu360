@@ -1,0 +1,183 @@
+@page "/tareas"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "tareas.consultar")]
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject Procu360.Infraestructura.Tareas.ServicioTareas Servicio
+@inject ServicioPermisos Autorizacion
+
+<PageTitle>Tareas · Procu360</PageTitle>
+
+<div class="d-flex align-items-baseline gap-3 mb-3">
+    <h1 class="h3 mb-0">Tareas y agenda</h1>
+    <a href="/tareas/calendario">Ver calendario</a>
+</div>
+
+@if (_mensaje is not null)
+{
+    <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
+}
+
+<div class="row g-2 align-items-end mb-3">
+    <div class="col-md-4">
+        <label class="form-label" for="filtro">Ver</label>
+        <select id="filtro" class="form-select" @onchange="CambiarFiltroAsync">
+            <option value="Pendientes" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes)">Pendientes</option>
+            <option value="Vencidas" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Vencidas)">Vencidas</option>
+            <option value="Hoy" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Hoy)">Vencen hoy</option>
+            <option value="Semana" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Semana)">Próximos 7 días</option>
+            <option value="Cumplidas" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Cumplidas)">Cumplidas</option>
+            <option value="Todas" selected="@(_filtro == Procu360.Infraestructura.Tareas.FiltroTareas.Todas)">Todas</option>
+        </select>
+    </div>
+</div>
+
+@if (_resultado is null)
+{
+    <p>Cargando…</p>
+}
+else if (_resultado.Total == 0)
+{
+    <p class="text-muted">No hay tareas en esta vista.</p>
+}
+else
+{
+    <p class="text-muted">@_resultado.Total tareas · página @_resultado.Pagina de @_resultado.Paginas</p>
+    <table class="table table-sm align-middle">
+        <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th><th>Responsable</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var t in _resultado.Filas)
+            {
+                <tr class="@(t.Vence is DateOnly v && v < Hoy && t.Estado == 1 ? "table-danger" : "")">
+                    <td>@(t.Vence?.ToString("dd/MM/yyyy") ?? "—")</td>
+                    <td>@t.Titulo @(t.VisibleParaTodos ? "· visible para todos" : "")</td>
+                    <td>
+                        @if (t.NroOrden is int n && t.ExpedienteId is long e)
+                        {
+                            <a href="/expedientes/@e">@n.ToString("D5")</a>
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td>@(t.Responsable ?? "—")</td>
+                    <td>
+                        @if (t.Estado == 1 && _puedeEditar)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => CumplirAsync(t.Id)">Cumplida</button>
+                        }
+                        else if (t.Estado == 2)
+                        {
+                            <span class="badge text-bg-success">Cumplida</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_puedeCrear)
+{
+    <div class="card p-3 mt-4" style="max-width: 640px;">
+        <h2 class="h5">Nueva tarea</h2>
+        <div class="row g-2">
+            <div class="col-md-8">
+                <label class="form-label" for="titulo">Título</label>
+                <input id="titulo" class="form-control" @bind="_nuevoTitulo" maxlength="150" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="vence">Vence</label>
+                <input id="vence" class="form-control" type="date" @bind="_nuevoVence" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="expediente">Nro de orden del expediente (opcional)</label>
+                <input id="expediente" class="form-control" @bind="_nuevoNro" />
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="todos" @bind="_nuevoParaTodos" />
+                    <label class="form-check-label" for="todos">Visible para todo el Estudio (sin expediente)</label>
+                </div>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-primary" @onclick="CrearAsync">Crear tarea</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Procu360.Infraestructura.Tareas.FiltroTareas _filtro = Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes;
+    private Procu360.Infraestructura.Tareas.ResultadoTareas? _resultado;
+    private bool _exito;
+    private string? _mensaje;
+    private bool _puedeCrear;
+    private bool _puedeEditar;
+    private string _nuevoTitulo = string.Empty;
+    private DateOnly _nuevoVence = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().AddDays(7);
+    private string _nuevoNro = string.Empty;
+    private bool _nuevoParaTodos;
+
+    private static DateOnly Hoy => Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
+        _puedeCrear = await Autorizacion.TieneAsync("tareas.crear");
+        _puedeEditar = await Autorizacion.TieneAsync("tareas.editar");
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync() => _resultado = await Servicio.ListarAsync(_filtro, 1);
+
+    private async Task CambiarFiltroAsync(ChangeEventArgs e)
+    {
+        _filtro = Enum.TryParse<Procu360.Infraestructura.Tareas.FiltroTareas>(e.Value?.ToString(), out var f)
+            ? f : Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes;
+        await CargarAsync();
+    }
+
+    private async Task CumplirAsync(long id)
+    {
+        var r = await Servicio.CumplirAsync(id);
+        await Informar(r, "Tarea marcada como cumplida.");
+    }
+
+    private async Task CrearAsync()
+    {
+        long? expediente = null;
+        if (!string.IsNullOrWhiteSpace(_nuevoNro))
+        {
+            if (!int.TryParse(_nuevoNro.Trim(), out var nro))
+            {
+                await Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion.Fallo("El número de orden no es válido."), null);
+                return;
+            }
+            var busqueda = await Busqueda.BuscarAsync(new Procu360.Infraestructura.Expedientes.CriteriosBusqueda(
+                nro.ToString(), null, null, false, false, 1, 100));
+            expediente = busqueda.Filas.FirstOrDefault(f => f.NroOrden == nro)?.Id;
+            if (expediente is null)
+            {
+                await Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion.Fallo(
+                    "No encontramos ese expediente en tu alcance."), null);
+                return;
+            }
+        }
+
+        var r = await Servicio.CrearAsync(_nuevoTitulo, _nuevoVence, expediente, _nuevoParaTodos && expediente is null);
+        if (r.Exito) { _nuevoTitulo = string.Empty; _nuevoNro = string.Empty; _nuevoParaTodos = false; }
+        await Informar(r, "Tarea creada.");
+    }
+
+    private async Task Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion r, string? ok)
+    {
+        _exito = r.Exito;
+        _mensaje = r.Exito ? ok : r.Error;
+        await CargarAsync();
+    }
+
+    [Inject] private Procu360.Infraestructura.Expedientes.ServicioBusquedaExpedientes Busqueda { get; set; } = null!;
+}

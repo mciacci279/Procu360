@@ -1,0 +1,221 @@
+@page "/expedientes/{Id:long}"
+@attribute [Authorize(Policy = "expedientes.consultar")]
+@inject Procu360.Infraestructura.Expedientes.FichaExpedienteServicio Servicio
+
+<PageTitle>Expediente @(_encabezado?.NroOrden.ToString("D5") ?? "") · Procu360</PageTitle>
+
+@if (!_visible)
+{
+    <div class="alert alert-secondary" role="status">No encontramos ese expediente en tu alcance.</div>
+    <a href="/expedientes">Volver a expedientes</a>
+}
+else if (_encabezado is not null)
+{
+    <div class="mb-3">
+        <a href="/expedientes" class="small">← Volver a resultados</a>
+        <div class="d-flex flex-wrap align-items-baseline gap-2 mt-1">
+            <h1 class="h3 mb-0">Expediente @_encabezado.NroOrden.ToString("D5")</h1>
+            @if (_encabezado.NroExpedienteJudicial is not null)
+            {
+                <span class="badge text-bg-light border">Judicial: @_encabezado.NroExpedienteJudicial</span>
+            }
+            @if (_encabezado.Instancia is not null)
+            {
+                <span class="badge text-bg-primary">@_encabezado.Instancia</span>
+            }
+            @if (_encabezado.EtapaActual is not null)
+            {
+                <span class="badge text-bg-secondary">Etapa: @_encabezado.EtapaActual</span>
+            }
+        </div>
+        <div class="fw-semibold mt-1">@(_encabezado.Caratula ?? "Sin carátula")</div>
+        @if (_encabezado.Recaratulacion is not null)
+        {
+            <div class="small text-muted">Recaratulada: @_encabezado.Recaratulacion</div>
+        }
+        <div class="small text-muted">
+            @string.Join(" · ", new[] { _encabezado.Juzgado, _encabezado.Procurador }.Where(x => !string.IsNullOrEmpty(x)))
+        </div>
+    </div>
+
+    @if (_encabezado.Anulado)
+    {
+        <div class="alert alert-warning" role="alert">Expediente dado de baja. @_encabezado.MotivoAnulacion</div>
+    }
+
+    <ul class="nav nav-tabs mb-3">
+        @foreach (var (clave, nombre) in Pestanas)
+        {
+            <li class="nav-item">
+                <a class="nav-link @(Pestana == clave ? "active" : "")" href="@($"/expedientes/{Id}?tab={clave}")"
+                   aria-current="@(Pestana == clave ? "page" : null)">@nombre</a>
+            </li>
+        }
+    </ul>
+
+    @switch (Pestana)
+    {
+        case "personas":
+            <table class="table table-sm">
+                <thead><tr><th>Persona</th><th>Rol</th><th>Documento</th><th>CUIT</th><th>Domicilio principal</th></tr></thead>
+                <tbody>
+                    @foreach (var p in _personas!)
+                    {
+                        <tr><td>@p.Nombre</td><td>@p.Rol</td><td>@(p.Documento ?? "—")</td><td>@(p.Cuit ?? "—")</td><td>@(p.Domicilio ?? "—")</td></tr>
+                    }
+                </tbody>
+            </table>
+            break;
+
+        case "periodos":
+            @if (_periodos!.Count == 0)
+            {
+                <p class="text-muted">No hay períodos adeudados cargados.</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead><tr><th>Año</th><th>Cuota</th><th>Concepto</th><th>Vencimiento</th><th class="text-end">Tributo</th><th class="text-end">Recargo</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in _periodos!)
+                        {
+                            <tr>
+                                <td>@p.Anio</td><td>@(p.Cuota ?? "—")</td><td>@(p.Concepto ?? "—")</td>
+                                <td>@(p.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td class="text-end">@Importe(p.Tributo)</td><td class="text-end">@Importe(p.Recargo)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            break;
+
+        case "etapas":
+            <EtapasExpediente ExpedienteId="Id" />
+            break;
+
+        case "tareas":
+            @if (_tareas!.Count == 0)
+            {
+                <p class="text-muted">No hay tareas para este expediente.</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead><tr><th>Tarea</th><th>Vence</th><th>Responsable</th><th>Estado</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in _tareas!)
+                        {
+                            <tr>
+                                <td>@t.Titulo</td><td>@(t.Vence?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td>@(t.Responsable ?? "—")</td><td>@NombreEstadoTarea(t.Estado)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            break;
+
+        default:
+            @if (_resumen is not null)
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card h-100"><div class="card-body">
+                            <h2 class="h6 text-uppercase text-muted">Demandado</h2>
+                            <div class="fw-semibold">@(_resumen.Demandado ?? "Sin demandado cargado")</div>
+                            <div class="small text-muted">@_resumen.Codemandados codemandado(s)</div>
+                            <h2 class="h6 text-uppercase text-muted mt-3">Comitente y concepto</h2>
+                            <div>@(_resumen.Comitente ?? "—")</div>
+                            <div class="small text-muted">@(_resumen.Concepto ?? "—")</div>
+                        </div></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100"><div class="card-body">
+                            <h2 class="h6 text-uppercase text-muted">Objeto de la deuda</h2>
+                            <dl class="row small mb-0">
+                                <dt class="col-5">Cuenta / resolución</dt><dd class="col-7">@(_resumen.NroCuenta ?? "—")</dd>
+                                <dt class="col-5">Nomenclatura</dt><dd class="col-7">@(_resumen.Nomenclatura ?? "—")</dd>
+                                <dt class="col-5">Dominio</dt><dd class="col-7">@(_resumen.Dominio ?? "—")</dd>
+                                <dt class="col-5">Designación</dt><dd class="col-7">@(_resumen.Designacion ?? "—")</dd>
+                                <dt class="col-5">Matrícula RPI</dt><dd class="col-7">@(_resumen.MatriculaRpi ?? "—")</dd>
+                            </dl>
+                        </div></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100"><div class="card-body">
+                            <h2 class="h6 text-uppercase text-muted">Título de deuda</h2>
+                            <dl class="row small mb-0">
+                                <dt class="col-5">Fecha del título</dt><dd class="col-7">@(_resumen.FechaTitulo?.ToString("dd/MM/yyyy") ?? "—")</dd>
+                                <dt class="col-5">Monto del título</dt><dd class="col-7">@(_resumen.MontoTitulo is decimal t ? Importe(t) : "—")</dd>
+                                <dt class="col-5">Capital</dt><dd class="col-7">@(_resumen.MontoCapital is decimal k ? Importe(k) : "—")</dd>
+                                <dt class="col-5">Liquidación</dt><dd class="col-7">@(_resumen.NroLiquidacion ?? "—")</dd>
+                            </dl>
+                        </div></div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_resumen.Observaciones))
+                    {
+                        <div class="col-md-6">
+                            <div class="card h-100"><div class="card-body">
+                                <h2 class="h6 text-uppercase text-muted">Observaciones</h2>
+                                <div class="small" style="white-space: pre-line">@_resumen.Observaciones</div>
+                            </div></div>
+                        </div>
+                    }
+                </div>
+            }
+            break;
+    }
+}
+
+@code {
+    private static readonly (string Clave, string Nombre)[] Pestanas =
+    [
+        ("resumen", "Resumen"), ("personas", "Personas"), ("periodos", "Períodos"),
+        ("etapas", "Etapas"), ("tareas", "Tareas")
+    ];
+
+    private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
+
+    [Parameter] public long Id { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
+
+    private bool _visible;
+    private Procu360.Infraestructura.Expedientes.EncabezadoExpediente? _encabezado;
+    private Procu360.Infraestructura.Expedientes.ResumenExpediente? _resumen;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PersonaExpediente>? _personas;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PeriodoExpediente>? _periodos;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.EtapaHistorial>? _etapas;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.TareaExpediente>? _tareas;
+
+    private string Pestana => Pestanas.Any(p => p.Clave == Tab) ? Tab! : "resumen";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _visible = await Servicio.VisibleAsync(Id);
+        if (!_visible) return;
+
+        _encabezado = await Servicio.EncabezadoAsync(Id);
+        switch (Pestana)
+        {
+            case "personas": _personas = await Servicio.PersonasAsync(Id); break;
+            case "periodos": _periodos = await Servicio.PeriodosAsync(Id); break;
+            case "etapas": break; // la pestaña carga sus datos en EtapasExpediente
+            case "tareas": _tareas = await Servicio.TareasAsync(Id); break;
+            default: _resumen = await Servicio.ResumenAsync(Id); break;
+        }
+    }
+
+    private static string Importe(decimal valor) => valor.ToString("C2", Argentina);
+
+    private static string NombreEstadoEtapa(byte estado) => estado switch
+    {
+        1 => "Alta", 2 => "Cumplimentada", 3 => "Suspendida", 4 => "Baja", _ => "—"
+    };
+
+    private static string NombreEstadoTarea(byte estado) => estado switch
+    {
+        1 => "Pendiente", 2 => "Cumplida", 3 => "Archivada", 4 => "Anulada", _ => "—"
+    };
+}
+

@@ -1,0 +1,168 @@
+@page "/estudio/roles"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject ServicioPermisos Autorizacion
+@inject ServicioAdministracionEstudio Administracion
+
+<PageTitle>Roles y permisos · Procu360</PageTitle>
+
+<h1 class="h3 mb-3">Roles y permisos</h1>
+
+@if (!_cargado)
+{
+    <p>Cargando…</p>
+}
+else if (!_puedeAdministrar)
+{
+    <div class="alert alert-warning" role="alert">No tenés permiso para administrar usuarios y roles de este Estudio.</div>
+}
+else
+{
+    @if (_mensaje is not null)
+    {
+        <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
+    }
+
+    <div class="row g-2 align-items-end mb-3">
+        <div class="col-md-4">
+            <label class="form-label" for="rol">Rol</label>
+            <select id="rol" class="form-select" @onchange="SeleccionarAsync">
+                <option value="0" selected="@(_seleccion == 0)">+ Nuevo rol personalizado</option>
+                @foreach (var r in _roles)
+                {
+                    <option value="@r.Id" selected="@(_seleccion == r.Id)">@r.Nombre@(r.EsSistema ? " (sugerido)" : "")</option>
+                }
+            </select>
+        </div>
+        @if (_seleccion == 0)
+        {
+            <div class="col-md-4">
+                <label class="form-label" for="nombre">Nombre</label>
+                <input id="nombre" class="form-control" @bind="_nombre" maxlength="50" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="ambito">Ámbito</label>
+                <select id="ambito" class="form-select" @bind="_ambito">
+                    <option value="1">Todo el Estudio</option>
+                    <option value="2">Por comitente</option>
+                    <option value="3">Expedientes asignados</option>
+                </select>
+            </div>
+        }
+        else
+        {
+            <div class="col-md-6">
+                <div class="form-text">Ámbito: @NombreAmbito(_ambitoActual) · Miembros activos: @_miembrosActual</div>
+            </div>
+        }
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table class="table table-sm table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>Módulo</th>
+                    @foreach (var a in Acciones.Todas)
+                    {
+                        <th class="text-center text-capitalize">@a</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var modulo in Modulos.Todos)
+                {
+                    <tr>
+                        <td>@modulo</td>
+                        @foreach (var a in Acciones.Todas)
+                        {
+                            var permiso = Permisos.De(modulo, a);
+                            <td class="text-center">
+                                <input type="checkbox" class="form-check-input" title="@permiso"
+                                       checked="@_permisos.Contains(permiso)"
+                                       @onchange="e => Alternar(permiso, (bool)(e.Value ?? false))" />
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <button class="btn btn-primary" @onclick="GuardarAsync">@(_seleccion == 0 ? "Crear rol" : "Guardar permisos")</button>
+    <span class="ms-2 text-muted">@_permisos.Count permisos seleccionados</span>
+}
+
+@code {
+    private bool _cargado;
+    private bool _puedeAdministrar;
+    private IReadOnlyList<VistaRol> _roles = [];
+    private int _seleccion;
+    private string _nombre = string.Empty;
+    private byte _ambito = 1;
+    private byte _ambitoActual = 1;
+    private int _miembrosActual;
+    private readonly HashSet<string> _permisos = new(StringComparer.Ordinal);
+    private string? _mensaje;
+    private bool _exito;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        SesionContexto.Aplicar(estado.User, Contexto);
+        _puedeAdministrar = await Autorizacion.TieneAsync(Permisos.UsuariosAdministrar);
+        if (_puedeAdministrar) await CargarRolesAsync();
+        _cargado = true;
+    }
+
+    private async Task CargarRolesAsync() => _roles = await Administracion.ListarRolesAsync();
+
+    private async Task SeleccionarAsync(ChangeEventArgs e)
+    {
+        _seleccion = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        _permisos.Clear();
+        if (_seleccion == 0) return;
+
+        var rol = _roles.FirstOrDefault(r => r.Id == _seleccion);
+        if (rol is null) return;
+        foreach (var p in rol.Permisos) _permisos.Add(p);
+        _ambitoActual = rol.Ambito;
+        _miembrosActual = rol.Miembros;
+    }
+
+    private void Alternar(string permiso, bool marcado)
+    {
+        if (marcado) _permisos.Add(permiso);
+        else _permisos.Remove(permiso);
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (_seleccion == 0)
+        {
+            var creado = await Administracion.CrearRolAsync(_nombre, null, _ambito, _permisos.ToList());
+            Informar(creado.Exito, creado.Exito ? "Rol creado." : creado.Error);
+            if (creado.Exito) { Autorizacion.Invalidar(); _nombre = string.Empty; await CargarRolesAsync(); }
+            return;
+        }
+
+        var actualizado = await Administracion.ActualizarPermisosAsync(_seleccion, _permisos.ToList());
+        Informar(actualizado.Exito, actualizado.Exito ? "Permisos guardados." : actualizado.Error);
+        if (actualizado.Exito) { Autorizacion.Invalidar(); await CargarRolesAsync(); }
+    }
+
+    private void Informar(bool exito, string? texto)
+    {
+        _exito = exito;
+        _mensaje = texto;
+    }
+
+    private static string NombreAmbito(byte ambito) => ambito switch
+    {
+        1 => "todo el Estudio",
+        2 => "por comitente",
+        3 => "expedientes asignados",
+        _ => "desconocido"
+    };
+}

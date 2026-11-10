@@ -1,0 +1,77 @@
+@page "/tareas/calendario"
+@attribute [Authorize(Policy = "tareas.consultar")]
+@inject Procu360.Infraestructura.Tareas.ServicioTareas Servicio
+
+<PageTitle>Calendario de tareas · Procu360</PageTitle>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0 me-auto">@_primero.ToString("MMMM yyyy", Argentina)</h1>
+    <a class="btn btn-outline-secondary btn-sm" href="@Enlace(_primero.AddMonths(-1))">← Mes anterior</a>
+    <a class="btn btn-outline-secondary btn-sm" href="@Enlace(Hoy)">Hoy</a>
+    <a class="btn btn-outline-secondary btn-sm" href="@Enlace(_primero.AddMonths(1))">Mes siguiente →</a>
+    <a class="btn btn-link btn-sm" href="/tareas">Lista de tareas</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered calendario">
+        <thead>
+            <tr>
+                @foreach (var d in NombresDias)
+                {
+                    <th class="text-center">@d</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @for (var semana = 0; semana < _semanas; semana++)
+            {
+                <tr>
+                    @for (var dia = 0; dia < 7; dia++)
+                    {
+                        var fecha = _inicio.AddDays(semana * 7 + dia);
+                        var delMes = fecha.Month == _primero.Month;
+                        var tareas = _tareas.Where(t => t.Vence == fecha).ToList();
+                        <td class="align-top @(delMes ? "" : "text-muted bg-light") @(fecha == Hoy ? "table-primary" : "")" style="min-width: 120px; height: 110px;">
+                            <div class="small fw-semibold">@fecha.Day</div>
+                            @foreach (var t in tareas.Take(3))
+                            {
+                                <div class="small text-truncate @(t.Estado == 2 ? "text-decoration-line-through text-muted" : "")" title="@t.Titulo">
+                                    @t.Titulo
+                                </div>
+                            }
+                            @if (tareas.Count > 3)
+                            {
+                                <div class="small text-muted">+@(tareas.Count - 3) más</div>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
+    private static readonly string[] NombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+    [SupplyParameterFromQuery(Name = "mes")] public string? Mes { get; set; }
+
+    private DateOnly Hoy => Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
+    private DateOnly _primero;
+    private DateOnly _inicio;
+    private int _semanas;
+    private IReadOnlyList<Procu360.Infraestructura.Tareas.FilaTarea> _tareas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Mes pedido (yyyy-MM) o el actual. La grilla empieza el lunes de la semana del día 1.
+        _primero = DateOnly.TryParseExact(Mes + "-01", "yyyy-MM-dd", out var pedido) ? pedido : new DateOnly(Hoy.Year, Hoy.Month, 1);
+        _inicio = _primero.AddDays(-(((int)_primero.DayOfWeek + 6) % 7));
+        var fin = _primero.AddMonths(1).AddDays(-1);
+        _semanas = (int)Math.Ceiling(((fin.DayNumber - _inicio.DayNumber) + 1) / 7.0);
+        _tareas = await Servicio.EntreAsync(_inicio, _inicio.AddDays(_semanas * 7 - 1));
+    }
+
+    private string Enlace(DateOnly mes) => $"/tareas/calendario?mes={mes:yyyy-MM}";
+}

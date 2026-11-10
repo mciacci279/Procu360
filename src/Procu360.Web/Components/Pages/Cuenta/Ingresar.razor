@@ -1,0 +1,51 @@
+@page "/cuenta/ingresar"
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+
+<PageTitle>Ingresar · Procu360</PageTitle>
+
+<div class="container py-5" style="max-width: 420px;">
+    <h1 class="h3 mb-4">Ingresar</h1>
+
+    @if (Error is not null)
+    {
+        <div class="alert alert-danger" role="alert">@MensajeDeError(Error)</div>
+    }
+    @if (Aceptada == 1)
+    {
+        <div class="alert alert-success" role="status">Invitación aceptada. Ya podés ingresar.</div>
+    }
+
+    <form method="post" action="/cuenta/ingresar">
+        <input type="hidden" name="__RequestVerificationToken" value="@_token" />
+        <div class="mb-3">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-control" id="email" name="email" type="email" required autocomplete="username" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="clave">Contraseña</label>
+            <input class="form-control" id="clave" name="clave" type="password" required autocomplete="current-password" />
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Ingresar</button>
+    </form>
+</div>
+
+@code {
+    // Token generado desde la request HTTP: liga el formulario a la identidad real de quien lo envía.
+    private string _token = string.Empty;
+
+    protected override void OnInitialized() =>
+        _token = Antiforgery.GetAndStoreTokens(Http.HttpContext!).RequestToken ?? string.Empty;
+
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public int? Aceptada { get; set; }
+
+    // Mensajes genéricos: no revelan si la cuenta existe.
+    private static string MensajeDeError(string codigo) => codigo switch
+    {
+        "bloqueado" => "La cuenta está bloqueada temporalmente por demasiados intentos. Probá más tarde.",
+        "sesion" => "Tu sesión terminó porque ya no tenés acceso a ese Estudio.",
+        "formulario" => "El formulario venció. Intentá de nuevo.",
+        _ => "Email o contraseña incorrectos."
+    };
+}

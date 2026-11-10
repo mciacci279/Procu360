@@ -1,0 +1,104 @@
+﻿@page "/"
+@attribute [Authorize]
+@inject Procu360.Infraestructura.MiDia.ServicioMiDia MiDia
+
+<PageTitle>Mi día · Procu360</PageTitle>
+
+<h1 class="h3 mb-1">Mi día</h1>
+<p class="text-muted mb-4">@Hoy.ToString("dd/MM/yyyy") · alcance según tu rol en el Estudio</p>
+
+@if (_resumen is null)
+{
+    <p>Cargando…</p>
+}
+else if (_resumen.SinAlcance)
+{
+    <div class="alert alert-warning" role="alert">Tu rol no te da acceso a expedientes en este Estudio.</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <Tarjeta Titulo="Vencimientos hoy" Valor="@_resumen.VencimientosHoy" Detalle="@($"{_resumen.VencimientosVencidos} vencidos")" />
+        <Tarjeta Titulo="Novedades sin revisar" Valor="@_resumen.NovedadesSinRevisar" />
+        <Tarjeta Titulo="Etapas vencidas" Valor="@_resumen.EtapasVencidas" />
+        <Tarjeta Titulo="Sin movimiento" Valor="@_resumen.SinMovimiento" Detalle="@($"más de {_resumen.DiasSinMovimiento} días")" />
+        <Tarjeta Titulo="Perención próxima" Valor="@_resumen.PerencionProxima" Detalle="@($"alerta a {_resumen.DiasAlertaPerencion} días")" />
+    </div>
+
+    <h2 class="h5">Vencimientos y tareas</h2>
+    @if (_resumen.Tareas.Count == 0)
+    {
+        <p class="text-muted">No hay tareas pendientes para hoy.</p>
+    }
+    else
+    {
+        <table class="table table-sm mb-4">
+            <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th></tr></thead>
+            <tbody>
+                @foreach (var t in _resumen.Tareas)
+                {
+                    <tr>
+                        <td>@t.Vence.ToString("dd/MM/yyyy")</td>
+                        <td>@t.Titulo</td>
+                        <td>@(t.ExpedienteId is long eid && t.NroOrden is int n ? new MarkupString($"<a href=\"/expedientes/{eid}\">{n:D5}</a>") : (MarkupString)"—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2 class="h5">Novedades sin revisar</h2>
+    @if (_resumen.Novedades.Count == 0)
+    {
+        <p class="text-muted">No hay novedades pendientes.</p>
+    }
+    else
+    {
+        <table class="table table-sm mb-4">
+            <thead><tr><th>Fecha</th><th>Novedad</th><th>Expediente</th></tr></thead>
+            <tbody>
+                @foreach (var n in _resumen.Novedades)
+                {
+                    <tr>
+                        <td>@n.Fecha.ToString("dd/MM/yyyy")</td>
+                        <td>@(n.Texto.Length > 120 ? n.Texto[..120] + "…" : n.Texto)</td>
+                        <td>@(n.ExpedienteId is long e ? e.ToString() : "Sin vincular")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2 class="h5">Perención</h2>
+    @if (_resumen.Perenciones.Count == 0)
+    {
+        <p class="text-muted">Ningún expediente vence su perención dentro de @_resumen.DiasAlertaPerencion días.</p>
+    }
+    else
+    {
+        <table class="table table-sm">
+            <thead><tr><th>Expediente</th><th>Último corte</th><th>Vence</th></tr></thead>
+            <tbody>
+                @foreach (var p in _resumen.Perenciones)
+                {
+                    <tr class="@(p.Vence < Hoy ? "table-danger" : "")">
+                        <td>@p.NroOrden.ToString("D5")</td>
+                        <td>@p.UltimoCorte.ToString("dd/MM/yyyy")</td>
+                        <td>@p.Vence.ToString("dd/MM/yyyy")@(p.Vence < Hoy ? " · vencida" : "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private static DateOnly Hoy => Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
+    private Procu360.Infraestructura.MiDia.MiDiaResumen? _resumen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // El middleware ya fijó el Estudio y precargó los permisos de esta request.
+        _resumen = await MiDia.ResumenAsync();
+    }
+}
