@@ -331,6 +331,25 @@ h1, .h1, .h3:is(h1) {
     padding: .35em .75em;
 }
 
+/* Botón de quitar dentro de una pastilla (por ejemplo, un rol asignado). */
+.pastilla .quitar {
+    border: 0;
+    padding: 0 0 0 2px;
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    opacity: .55;
+    transition: opacity .15s ease;
+}
+
+.pastilla .quitar:hover,
+.pastilla .quitar:focus-visible {
+    opacity: 1;
+}
+
 /* ---------- Lista de novedades ---------- */
 
 .lista-novedades {
@@ -618,6 +637,36 @@ h1, .h1, .h3:is(h1) {
 
 .tarjeta.acento .datos dt,
 .tarjeta.acento .datos dd { border-top-color: #DBEAFE; }
+
+/* Panel de acción: el formulario de la pantalla (Asignar rol, Nueva tarea, Invitar, Registrar etapa).
+   Destacado en azul; en la columna lateral derecha además queda fijo al hacer scroll. */
+.tarjeta.panel-accion {
+    border: 1px solid #BFDBFE;
+    border-top: 4px solid var(--p-azul);
+    background: linear-gradient(175deg, #EFF6FF 0%, var(--p-superficie) 140px);
+    box-shadow: 0 14px 34px -18px rgba(29, 78, 216, .35);
+}
+
+.lateral > .tarjeta.panel-accion {
+    position: sticky;
+    top: 20px;
+}
+
+.tarjeta.panel-accion .form-label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--p-texto-2);
+}
+
+.tarjeta.panel-accion .form-text {
+    color: var(--p-texto-suave);
+}
+
+@media (max-width: 991px) {
+    .lateral > .tarjeta.panel-accion {
+        position: static;
+    }
+}
 
 .cifra {
     font-family: var(--p-fuente-titulos);
@@ -1006,6 +1055,18 @@ h1, .h1, .h3:is(h1) {
     margin-top: 2px;
 }
 
+/* Texto recortado (emails largos): el tooltip muestra el valor completo y el clic lo despliega. */
+.table .secundario.recortado {
+    cursor: pointer;
+    text-decoration: underline dotted var(--p-borde-fuerte, #CBD5E1);
+    text-underline-offset: 3px;
+    word-break: break-all;
+}
+
+.table .secundario.recortado:hover {
+    color: var(--p-texto-2);
+}
+
 .table .text-end {
     font-variant-numeric: tabular-nums;
 }
@@ -1057,6 +1118,69 @@ tr.vencida > td {
     color: var(--p-texto-suave);
     font-weight: 600;
     font-size: 14px;
+}
+
+/* Barra bajo cada grilla: Anterior/Siguiente a la izquierda, registros por página a la derecha. */
+.paginador {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.paginador .pagination {
+    margin: 0;
+}
+
+.paginador .tamanios {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--p-texto-tenue);
+}
+
+.mini-segmentado {
+    display: inline-flex;
+    gap: 3px;
+    padding: 4px;
+    background: #EEF2F7;
+    border-radius: 11px;
+}
+
+.mini-segmentado button,
+.mini-segmentado a {
+    min-width: 40px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--p-texto-suave);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+.mini-segmentado button:hover,
+.mini-segmentado a:hover {
+    color: var(--p-tinta);
+}
+
+.mini-segmentado .activo {
+    background: var(--p-superficie);
+    color: var(--p-tinta);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .08), 0 4px 10px -4px rgba(15, 23, 42, .18);
 }
 
 /* ---------- Pantalla de acceso (ingreso e invitación) ---------- */

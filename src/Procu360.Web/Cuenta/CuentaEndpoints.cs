@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Procu360.Infraestructura.Identidad;
 using Procu360.Infraestructura.Persistencia.Entidades;
 using Procu360.Infraestructura.Tenancy;
@@ -18,12 +17,16 @@ public static class CuentaEndpoints
     {
         var grupo = rutas.MapGroup("/cuenta");
 
-        // La validación antiforgery se hace en cada handler (ValidoAsync).
-        grupo.MapPost("/ingresar", IngresarAsync);
+        // La validación antiforgery se hace en cada handler (ValidoAsync). Los handlers NO declaran parámetros
+        // [FromForm]: con ellos ASP.NET valida por su cuenta y un token inválido termina en un error 500
+        // en lugar de una redirección con mensaje. El formulario se lee a mano con ReadFormAsync.
+        // /ingresar e /invitacion comparten ruta con sus páginas Blazor, que también aceptan POST:
+        // WithOrder(-1) le da prioridad al endpoint y evita la ambigüedad de rutas.
+        grupo.MapPost("/ingresar", IngresarAsync).WithOrder(-1);
         // Distinta de la página /cuenta/estudio para no coincidir con su ruta de Razor.
         grupo.MapPost("/elegir-estudio", ElegirEstudioAsync);
         grupo.MapPost("/salir", SalirAsync);
-        grupo.MapPost("/invitacion", AceptarInvitacionAsync);
+        grupo.MapPost("/invitacion", AceptarInvitacionAsync).WithOrder(-1);
 
         return rutas;
     }
@@ -33,8 +36,6 @@ public static class CuentaEndpoints
 
     private static async Task<IResult> IngresarAsync(
         HttpContext http,
-        [FromForm] string email,
-        [FromForm] string clave,
         IAntiforgery antiforgery,
         UserManager<Usuario> usuarios,
         SignInManager<Usuario> firmas,
@@ -43,8 +44,10 @@ public static class CuentaEndpoints
         ILogger<CuentaLog> log)
     {
         if (!await ValidoAsync(http, antiforgery)) return Results.Redirect("/cuenta/ingresar?error=formulario");
+        var formulario = await http.Request.ReadFormAsync();
+        string? clave = formulario["clave"];
 
-        var emailLimpio = email?.Trim() ?? string.Empty;
+        var emailLimpio = formulario["email"].ToString().Trim();
         var usuario = await usuarios.FindByEmailAsync(emailLimpio);
         // Mismo mensaje para email inexistente y clave incorrecta: no se revela si la cuenta existe.
         if (usuario is null)
@@ -115,24 +118,41 @@ public static class CuentaEndpoints
 
     private static async Task<IResult> AceptarInvitacionAsync(
         HttpContext http,
-        [FromForm] int usuarioId,
-        [FromForm] string token,
-        [FromForm] string? clave,
         IAntiforgery antiforgery,
+        SignInManager<Usuario> firmas,
         ContextoEstudio contexto,
         ServicioInvitaciones invitaciones)
     {
-        if (!await ValidoAsync(http, antiforgery)) return Results.Redirect("/cuenta/ingresar?error=formulario");
+        var formulario = await http.Request.ReadFormAsync();
+        if (!int.TryParse(formulario["usuarioId"], out var usuarioId)) return Results.Redirect("/cuenta/ingresar?error=formulario");
+        var token = formulario["token"].ToString();
+        string? clave = formulario["clave"];
 
-        contexto.EstablecerUsuario(usuarioId);
-        var resultado = await invitaciones.AceptarAsync(usuarioId, token ?? string.Empty, clave);
-        if (!resultado.Exito)
+        if (!await ValidoAsync(http, antiforgery))
         {
-            var motivo = Uri.EscapeDataString(resultado.Errores.FirstOrDefault() ?? "No se pudo aceptar la invitación.");
-            return Results.Redirect($"/cuenta/invitacion?u={usuarioId}&t={Uri.EscapeDataString(token ?? string.Empty)}&error={motivo}");
+            // Caso típico: el enlace se abrió en un navegador con otra sesión iniciada y esa sesión cambió
+            // (venció o se cerró) antes de enviar. Se cierra la sesión para que el reintento genere un
+            // formulario sin usuario, que es el que corresponde a quien acepta una invitación.
+            await CerrarSesionPreviaAsync(http, firmas);
+            return RedirigirAInvitacion(usuarioId, token, "El formulario venció o cambió la sesión. Ingresá la contraseña de nuevo.");
         }
 
+        contexto.EstablecerUsuario(usuarioId);
+        var resultado = await invitaciones.AceptarAsync(usuarioId, token, clave);
+        if (!resultado.Exito)
+            return RedirigirAInvitacion(usuarioId, token, resultado.Errores.FirstOrDefault() ?? "No se pudo aceptar la invitación.");
+
+        // Quien acepta entra luego con su propia cuenta: no queda abierta la sesión de otro usuario.
+        await CerrarSesionPreviaAsync(http, firmas);
         return Results.Redirect("/cuenta/ingresar?aceptada=1");
+    }
+
+    private static IResult RedirigirAInvitacion(int usuarioId, string token, string error) =>
+        Results.Redirect($"/cuenta/invitacion?u={usuarioId}&t={Uri.EscapeDataString(token)}&error={Uri.EscapeDataString(error)}");
+
+    private static async Task CerrarSesionPreviaAsync(HttpContext http, SignInManager<Usuario> firmas)
+    {
+        if (http.User.Identity?.IsAuthenticated == true) await firmas.SignOutAsync();
     }
 
     private static void RegistrarFallo(ILogger log, HttpContext http, string motivo, string email) =>

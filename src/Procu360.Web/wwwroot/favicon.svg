@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ícono de pestaña de Procu360: "P" blanca con "360" celeste, sobre el azul noche de la barra. -->
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16213A"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#fondo)"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#38BDF8" stroke-opacity=".35" stroke-width="2"/>
+  <text x="9" y="45" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-weight="800" font-size="44" fill="#FFFFFF">P</text>
+  <text x="58" y="55" text-anchor="end" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-weight="800" font-size="18" letter-spacing="-.5" fill="#38BDF8">360</text>
+</svg>

@@ -153,19 +153,20 @@ public sealed class ServicioEtapas(
     /// Diligencias (cédulas y oficios) del Estudio dentro del alcance de la persona, ordenadas por vencimiento.
     /// Con <paramref name="soloAbiertas"/> muestra las de estado alta (pendientes de cumplir).
     /// </summary>
-    public async Task<PaginaDiligencias> ListarDiligenciasAsync(bool soloAbiertas, int pagina, CancellationToken ct = default)
+    public async Task<PaginaDiligencias> ListarDiligenciasAsync(bool soloAbiertas, int pagina, int tamanio = TamanioPaginaDiligencias, CancellationToken ct = default)
     {
+        tamanio = Math.Clamp(tamanio, 1, 100);
         var enAlcance = await alcance.IdsAsync(ct);
         var consulta = db.EtapaExpediente.Where(x => x.Etapa.EsDiligencia && enAlcance.Contains(x.ExpedienteId));
         if (soloAbiertas) consulta = consulta.Where(x => x.Estado == EstadoAlta);
 
         var total = await consulta.CountAsync(ct);
-        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)TamanioPaginaDiligencias));
+        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)tamanio));
         var numero = Math.Clamp(pagina, 1, paginas);
 
         var filas = await consulta
             .OrderBy(x => x.FechaVencimiento == null).ThenBy(x => x.FechaVencimiento).ThenBy(x => x.Id)
-            .Skip((numero - 1) * TamanioPaginaDiligencias).Take(TamanioPaginaDiligencias)
+            .Skip((numero - 1) * tamanio).Take(tamanio)
             .Select(x => new FilaDiligencia(x.Id, x.ExpedienteId, x.Expediente.NroOrden, x.Etapa.Nombre,
                 x.FechaInicio, x.FechaVencimiento, x.Estado, x.Observaciones))
             .ToListAsync(ct);

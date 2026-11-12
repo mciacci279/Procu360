@@ -64,6 +64,20 @@ public class NovedadesTests : IDisposable
     }
 
     [Fact]
+    public async Task El_tamanio_de_pagina_de_novedades_se_respeta()
+    {
+        await CrearNovedadAsync(await IdExpedienteAsync(641));
+        await CrearNovedadAsync(await IdExpedienteAsync(641));
+
+        using var ambito = Ambito(Estudio1, Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioNovedades>();
+        var deAUna = await servicio.ListarAsync(PestanaNovedades.SinRevisar, 1, 1);
+
+        Assert.Single(deAUna.Filas);
+        Assert.Equal(deAUna.Total, deAUna.Paginas);
+    }
+
+    [Fact]
     public async Task Una_novedad_sin_revisar_aparece_en_la_bandeja_y_al_marcarla_pasa_a_revisadas()
     {
         var id = await CrearNovedadAsync(await IdExpedienteAsync(641));

@@ -8,11 +8,19 @@
 
 <PageTitle>Roles y permisos · Procu360</PageTitle>
 
-<h1 class="h3 mb-3">Roles y permisos</h1>
+<div class="encabezado-pagina">
+    <div>
+        <h1>Roles y permisos</h1>
+        <p class="bajada">Qué puede hacer cada rol, módulo por módulo.</p>
+    </div>
+    <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="/estudio/usuarios">
+        <Icono Nombre="usuarios" Tamano="16" Grosor="2" /> Ver usuarios
+    </a>
+</div>
 
 @if (!_cargado)
 {
-    <p>Cargando…</p>
+    <p class="text-muted">Cargando…</p>
 }
 else if (!_puedeAdministrar)
 {
@@ -25,73 +33,90 @@ else
         <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
     }
 
-    <div class="row g-2 align-items-end mb-3">
-        <div class="col-md-4">
-            <label class="form-label" for="rol">Rol</label>
-            <select id="rol" class="form-select" @onchange="SeleccionarAsync">
-                <option value="0" selected="@(_seleccion == 0)">+ Nuevo rol personalizado</option>
-                @foreach (var r in _roles)
-                {
-                    <option value="@r.Id" selected="@(_seleccion == r.Id)">@r.Nombre@(r.EsSistema ? " (sugerido)" : "")</option>
-                }
-            </select>
+    <div class="columnas">
+        <div class="principal">
+            <section class="tarjeta" aria-labelledby="titulo-matriz">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul"><Icono Nombre="escudo" Tamano="18" Grosor="2" /></span>
+                    <h2 id="titulo-matriz">Permisos @(_seleccion == 0 ? "del rol nuevo" : $"de {NombreRolActual}")</h2>
+                    <span class="pastilla azul">@_permisos.Count seleccionados</span>
+                </div>
+                <div class="tabla-contenedor">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Módulo</th>
+                                @foreach (var a in Acciones.Todas)
+                                {
+                                    <th class="text-center text-capitalize">@a</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var modulo in Modulos.Todos)
+                            {
+                                <tr>
+                                    <td class="principal-celda">@modulo</td>
+                                    @foreach (var a in Acciones.Todas)
+                                    {
+                                        var permiso = Permisos.De(modulo, a);
+                                        <td class="text-center">
+                                            <input type="checkbox" class="form-check-input" title="@permiso"
+                                                   checked="@_permisos.Contains(permiso)"
+                                                   @onchange="e => Alternar(permiso, (bool)(e.Value ?? false))" />
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
-        @if (_seleccion == 0)
-        {
-            <div class="col-md-4">
-                <label class="form-label" for="nombre">Nombre</label>
-                <input id="nombre" class="form-control" @bind="_nombre" maxlength="50" />
-            </div>
-            <div class="col-md-2">
-                <label class="form-label" for="ambito">Ámbito</label>
-                <select id="ambito" class="form-select" @bind="_ambito">
-                    <option value="1">Todo el Estudio</option>
-                    <option value="2">Por comitente</option>
-                    <option value="3">Expedientes asignados</option>
-                </select>
-            </div>
-        }
-        else
-        {
-            <div class="col-md-6">
-                <div class="form-text">Ámbito: @NombreAmbito(_ambitoActual) · Miembros activos: @_miembrosActual</div>
-            </div>
-        }
-    </div>
 
-    <div class="table-responsive mb-3">
-        <table class="table table-sm table-bordered align-middle">
-            <thead>
-                <tr>
-                    <th>Módulo</th>
-                    @foreach (var a in Acciones.Todas)
-                    {
-                        <th class="text-center text-capitalize">@a</th>
-                    }
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var modulo in Modulos.Todos)
-                {
-                    <tr>
-                        <td>@modulo</td>
-                        @foreach (var a in Acciones.Todas)
+        <div class="lateral">
+            <section class="tarjeta panel-accion" aria-labelledby="titulo-rol">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul"><Icono Nombre="roles" Tamano="18" Grosor="2" /></span>
+                    <h2 id="titulo-rol">Rol</h2>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="rol">Rol a editar</label>
+                    <select id="rol" class="form-select" @onchange="SeleccionarAsync">
+                        <option value="0" selected="@(_seleccion == 0)">+ Nuevo rol personalizado</option>
+                        @foreach (var r in _roles)
                         {
-                            var permiso = Permisos.De(modulo, a);
-                            <td class="text-center">
-                                <input type="checkbox" class="form-check-input" title="@permiso"
-                                       checked="@_permisos.Contains(permiso)"
-                                       @onchange="e => Alternar(permiso, (bool)(e.Value ?? false))" />
-                            </td>
+                            <option value="@r.Id" selected="@(_seleccion == r.Id)">@r.Nombre@(r.EsSistema ? " (sugerido)" : "")</option>
                         }
-                    </tr>
+                    </select>
+                </div>
+                @if (_seleccion == 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="nombre">Nombre</label>
+                        <input id="nombre" class="form-control" @bind="_nombre" maxlength="50" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="ambito">Alcance de expedientes</label>
+                        <select id="ambito" class="form-select" @bind="_ambito">
+                            <option value="1">Todo el Estudio</option>
+                            <option value="2">Por comitente</option>
+                            <option value="3">Expedientes asignados</option>
+                        </select>
+                        <p class="form-text mb-0">@DescripcionAmbito(_ambito)</p>
+                    </div>
                 }
-            </tbody>
-        </table>
+                else
+                {
+                    <dl class="datos mb-3">
+                        <dt>Alcance</dt><dd>@NombreAmbito(_ambitoActual)</dd>
+                        <dt>Miembros activos</dt><dd>@_miembrosActual</dd>
+                    </dl>
+                }
+                <button class="btn btn-primary w-100" @onclick="GuardarAsync">@(_seleccion == 0 ? "Crear rol" : "Guardar permisos")</button>
+            </section>
+        </div>
     </div>
-
-    <button class="btn btn-primary" @onclick="GuardarAsync">@(_seleccion == 0 ? "Crear rol" : "Guardar permisos")</button>
-    <span class="ms-2 text-muted">@_permisos.Count permisos seleccionados</span>
 }
 
 @code {
@@ -106,6 +131,8 @@ else
     private readonly HashSet<string> _permisos = new(StringComparer.Ordinal);
     private string? _mensaje;
     private bool _exito;
+
+    private string NombreRolActual => _roles.FirstOrDefault(r => r.Id == _seleccion)?.Nombre ?? "—";
 
     protected override async Task OnInitializedAsync()
     {
@@ -160,9 +187,16 @@ else
 
     private static string NombreAmbito(byte ambito) => ambito switch
     {
-        1 => "todo el Estudio",
-        2 => "por comitente",
-        3 => "expedientes asignados",
-        _ => "desconocido"
+        1 => "Todo el Estudio",
+        2 => "Por comitente",
+        3 => "Expedientes asignados",
+        _ => "Desconocido"
+    };
+
+    private static string DescripcionAmbito(byte ambito) => ambito switch
+    {
+        2 => "Al asignar este rol vas a elegir el comitente cuyos expedientes puede ver la persona.",
+        3 => "La persona va a ver solo los expedientes que tenga asignados.",
+        _ => "La persona va a ver todos los expedientes del Estudio.",
     };
 }

@@ -23,132 +23,137 @@
     <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
 }
 
-<div class="tarjeta panel-filtros">
-    <div class="d-flex flex-wrap align-items-center gap-3">
-        <span class="rotulo-filtros" style="font-size: 13px; font-weight: 600; color: var(--p-texto-tenue)">Ver</span>
-        <div class="segmentado" role="group" aria-label="Filtro de tareas">
-            @foreach (var (filtro, nombre) in Filtros)
-            {
-                <button type="button" class="@(_filtro == filtro ? "activo" : "")" aria-pressed="@(_filtro == filtro ? "true" : "false")"
-                        @onclick="() => CambiarFiltroAsync(filtro)">@nombre</button>
-            }
+<div class="columnas">
+    <div class="principal">
+        <div class="tarjeta panel-filtros">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <span class="rotulo-filtros" style="font-size: 13px; font-weight: 600; color: var(--p-texto-tenue)">Ver</span>
+                <div class="segmentado" role="group" aria-label="Filtro de tareas">
+                    @foreach (var (filtro, nombre) in Filtros)
+                    {
+                        <button type="button" class="@(_filtro == filtro ? "activo" : "")" aria-pressed="@(_filtro == filtro ? "true" : "false")"
+                                @onclick="() => CambiarFiltroAsync(filtro)">@nombre</button>
+                    }
+                </div>
+            </div>
         </div>
+
+        @if (_resultado is null)
+        {
+            <p class="text-muted">Cargando…</p>
+        }
+        else if (_resultado.Total == 0)
+        {
+            <div class="tarjeta text-center py-5">
+                <span class="icono-tono tono-verde mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="tareas" Tamano="24" Grosor="2" /></span>
+                <p class="mb-0 fw-semibold">No hay tareas en esta vista.</p>
+            </div>
+        }
+        else
+        {
+            <div class="resumen-resultados">
+                <span><strong>@_resultado.Total</strong> tareas</span>
+                <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
+            </div>
+            <div class="tabla-contenedor">
+                <table class="table">
+                    <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th><th>Responsable</th><th class="text-end">Estado</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in _resultado.Filas)
+                        {
+                            <tr class="@(t.Vence is DateOnly v && v < Hoy && t.Estado == 1 ? "vencida" : "")">
+                                <td>
+                                    @if (t.Vence is DateOnly vence)
+                                    {
+                                        if (t.Estado == 1 && vence == Hoy)
+                                        {
+                                            <span class="pastilla roja">Hoy</span>
+                                        }
+                                        else if (t.Estado == 1 && vence < Hoy)
+                                        {
+                                            <span class="pastilla roja">Vencida · @vence.ToString("dd/MM/yyyy")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="numero">@vence.ToString("dd/MM/yyyy")</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="principal-celda">@t.Titulo</span>
+                                    @if (t.VisibleParaTodos) { <span class="secundario">Visible para todo el Estudio</span> }
+                                </td>
+                                <td>
+                                    @if (t.NroOrden is int n && t.ExpedienteId is long e)
+                                    {
+                                        <a class="nro" href="/expedientes/@e">@n.ToString("D5")</a>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td>@(t.Responsable ?? "—")</td>
+                                <td class="text-end">
+                                    @if (t.Estado == 1 && _puedeEditar)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => CumplirAsync(t.Id)">Marcar cumplida</button>
+                                    }
+                                    else if (t.Estado == 2)
+                                    {
+                                        <span class="pastilla verde">Cumplida</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pastilla ambar">Pendiente</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <Paginador Total="_resultado.Total" Pagina="_resultado.Pagina" Paginas="_resultado.Paginas" Tamanio="_tamanio"
+                       IrAPagina="IrAsync" CambiarTamanio="CambiarTamanioAsync" />
+        }
     </div>
+
+    @if (_puedeCrear)
+    {
+        <div class="lateral">
+            <section class="tarjeta panel-accion" aria-labelledby="titulo-nueva">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul"><Icono Nombre="mas" Tamano="18" Grosor="2.2" /></span>
+                    <h2 id="titulo-nueva">Nueva tarea</h2>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="titulo">Título</label>
+                    <input id="titulo" class="form-control" @bind="_nuevoTitulo" maxlength="150" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="vence">Vence</label>
+                    <input id="vence" class="form-control" type="date" @bind="_nuevoVence" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="expediente">Nro de orden del expediente (opcional)</label>
+                    <input id="expediente" class="form-control" @bind="_nuevoNro" />
+                </div>
+                <div class="mb-3">
+                    <label class="chip-toggle">
+                        <input type="checkbox" @bind="_nuevoParaTodos" />
+                        <span>Visible para todo el Estudio (sin expediente)</span>
+                    </label>
+                </div>
+                <button class="btn btn-primary w-100" @onclick="CrearAsync">Crear tarea</button>
+            </section>
+        </div>
+    }
 </div>
-
-@if (_resultado is null)
-{
-    <p class="text-muted">Cargando…</p>
-}
-else if (_resultado.Total == 0)
-{
-    <div class="tarjeta text-center py-5">
-        <span class="icono-tono tono-verde mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="tareas" Tamano="24" Grosor="2" /></span>
-        <p class="mb-0 fw-semibold">No hay tareas en esta vista.</p>
-    </div>
-}
-else
-{
-    <div class="resumen-resultados">
-        <span><strong>@_resultado.Total</strong> tareas</span>
-        <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
-    </div>
-    <div class="tabla-contenedor">
-        <table class="table">
-            <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th><th>Responsable</th><th class="text-end">Estado</th></tr></thead>
-            <tbody>
-                @foreach (var t in _resultado.Filas)
-                {
-                    <tr class="@(t.Vence is DateOnly v && v < Hoy && t.Estado == 1 ? "vencida" : "")">
-                        <td>
-                            @if (t.Vence is DateOnly vence)
-                            {
-                                if (t.Estado == 1 && vence == Hoy)
-                                {
-                                    <span class="pastilla roja">Hoy</span>
-                                }
-                                else if (t.Estado == 1 && vence < Hoy)
-                                {
-                                    <span class="pastilla roja">Vencida · @vence.ToString("dd/MM/yyyy")</span>
-                                }
-                                else
-                                {
-                                    <span class="numero">@vence.ToString("dd/MM/yyyy")</span>
-                                }
-                            }
-                            else
-                            {
-                                <span>—</span>
-                            }
-                        </td>
-                        <td>
-                            <span class="principal-celda">@t.Titulo</span>
-                            @if (t.VisibleParaTodos) { <span class="secundario">Visible para todo el Estudio</span> }
-                        </td>
-                        <td>
-                            @if (t.NroOrden is int n && t.ExpedienteId is long e)
-                            {
-                                <a class="nro" href="/expedientes/@e">@n.ToString("D5")</a>
-                            }
-                            else
-                            {
-                                <span>—</span>
-                            }
-                        </td>
-                        <td>@(t.Responsable ?? "—")</td>
-                        <td class="text-end">
-                            @if (t.Estado == 1 && _puedeEditar)
-                            {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => CumplirAsync(t.Id)">Marcar cumplida</button>
-                            }
-                            else if (t.Estado == 2)
-                            {
-                                <span class="pastilla verde">Cumplida</span>
-                            }
-                            else
-                            {
-                                <span class="pastilla ambar">Pendiente</span>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
-
-@if (_puedeCrear)
-{
-    <section class="tarjeta mt-4" style="max-width: 760px" aria-labelledby="titulo-nueva">
-        <div class="cabecera-seccion">
-            <span class="icono-tono tono-azul"><Icono Nombre="mas" Tamano="18" Grosor="2.2" /></span>
-            <h2 id="titulo-nueva">Nueva tarea</h2>
-        </div>
-        <div class="row g-3">
-            <div class="col-md-8">
-                <label class="form-label" for="titulo">Título</label>
-                <input id="titulo" class="form-control" @bind="_nuevoTitulo" maxlength="150" />
-            </div>
-            <div class="col-md-4">
-                <label class="form-label" for="vence">Vence</label>
-                <input id="vence" class="form-control" type="date" @bind="_nuevoVence" />
-            </div>
-            <div class="col-md-6">
-                <label class="form-label" for="expediente">Nro de orden del expediente (opcional)</label>
-                <input id="expediente" class="form-control" @bind="_nuevoNro" />
-            </div>
-            <div class="col-md-6 d-flex align-items-end">
-                <label class="chip-toggle">
-                    <input type="checkbox" @bind="_nuevoParaTodos" />
-                    <span>Visible para todo el Estudio (sin expediente)</span>
-                </label>
-            </div>
-            <div class="col-12">
-                <button class="btn btn-primary" @onclick="CrearAsync">Crear tarea</button>
-            </div>
-        </div>
-    </section>
-}
 
 @code {
     private static readonly (Procu360.Infraestructura.Tareas.FiltroTareas, string)[] Filtros =
@@ -163,6 +168,8 @@ else
 
     private Procu360.Infraestructura.Tareas.FiltroTareas _filtro = Procu360.Infraestructura.Tareas.FiltroTareas.Pendientes;
     private Procu360.Infraestructura.Tareas.ResultadoTareas? _resultado;
+    private int _pagina = 1;
+    private int _tamanio = 25;
     private bool _exito;
     private string? _mensaje;
     private bool _puedeCrear;
@@ -183,11 +190,25 @@ else
         await CargarAsync();
     }
 
-    private async Task CargarAsync() => _resultado = await Servicio.ListarAsync(_filtro, 1);
+    private async Task CargarAsync() => _resultado = await Servicio.ListarAsync(_filtro, _pagina, _tamanio);
 
     private async Task CambiarFiltroAsync(Procu360.Infraestructura.Tareas.FiltroTareas filtro)
     {
         _filtro = filtro;
+        _pagina = 1;
+        await CargarAsync();
+    }
+
+    private async Task IrAsync(int pagina)
+    {
+        _pagina = pagina;
+        await CargarAsync();
+    }
+
+    private async Task CambiarTamanioAsync(int tamanio)
+    {
+        _tamanio = tamanio;
+        _pagina = 1;
         await CargarAsync();
     }
 

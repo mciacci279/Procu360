@@ -56,6 +56,11 @@ public sealed class ServicioAdministracionEstudio(
             miembrosPorRol.GetValueOrDefault(r.Id))).ToList();
     }
 
+    /// <summary>Comitentes activos del Estudio, para elegir a cuál limita un rol con ámbito por comitente.</summary>
+    public async Task<IReadOnlyList<Expedientes.OpcionCatalogo>> ListarComitentesAsync(CancellationToken ct = default) =>
+        await db.Comitente.Where(c => c.Activo).OrderBy(c => c.Nombre)
+            .Select(c => new Expedientes.OpcionCatalogo(c.Id, c.Nombre)).ToListAsync(ct);
+
     public async Task<IReadOnlyList<VistaMembresia>> ListarMembresiasAsync(CancellationToken ct = default)
     {
         var membresias = await db.EstudioUsuario
@@ -245,6 +250,30 @@ public sealed class ServicioAdministracionEstudio(
         {
             antes = estadoAnterior,
             despues = EstadosMembresia.Desactivado
+        });
+        await db.SaveChangesAsync(ct);
+        permisos.Invalidar();
+        return ResultadoOperacion.Ok();
+    }
+
+    /// <summary>Vuelve a activar una membresía desactivada: recupera los roles que ya tenía asignados.</summary>
+    public async Task<ResultadoOperacion> ReactivarMembresiaAsync(int membresiaId, CancellationToken ct = default)
+    {
+        if (await SinPermisoAsync() is { } denegado) return denegado;
+
+        var membresia = await db.EstudioUsuario.FirstOrDefaultAsync(m => m.Id == membresiaId, ct);
+        if (membresia is null) return ResultadoOperacion.Fallo("La membresía no existe en este Estudio.");
+        if (membresia.Estado == EstadosMembresia.Activo) return ResultadoOperacion.Ok();
+        if (membresia.Estado != EstadosMembresia.Desactivado)
+            return ResultadoOperacion.Fallo("Solo se puede reactivar a una persona que fue desactivada.");
+
+        membresia.Estado = EstadosMembresia.Activo;
+        membresia.ModificadoUtc = DateTime.UtcNow;
+        membresia.ModificadoPor = contexto.UsuarioId;
+        Auditar(AccionCambiarEstado, "EstudioUsuario", membresiaId.ToString(), new
+        {
+            antes = EstadosMembresia.Desactivado,
+            despues = EstadosMembresia.Activo
         });
         await db.SaveChangesAsync(ct);
         permisos.Invalidar();

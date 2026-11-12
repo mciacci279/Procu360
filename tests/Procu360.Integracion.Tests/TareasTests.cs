@@ -83,6 +83,24 @@ public class TareasTests : IDisposable
     }
 
     [Fact]
+    public async Task El_tamanio_de_pagina_se_respeta_y_cambia_la_cantidad_de_paginas()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioTareas>();
+
+        var todas = await servicio.ListarAsync(FiltroTareas.Todas, 1, 100);
+        if (todas.Total < 2) return; // el seed siempre tiene tareas; si no, no hay qué paginar
+
+        var deAUna = await servicio.ListarAsync(FiltroTareas.Todas, 1, 1);
+        Assert.Single(deAUna.Filas);
+        Assert.Equal(todas.Total, deAUna.Paginas);
+
+        var segunda = await servicio.ListarAsync(FiltroTareas.Todas, 2, 1);
+        Assert.Single(segunda.Filas);
+        Assert.NotEqual(deAUna.Filas[0].Id, segunda.Filas[0].Id);
+    }
+
+    [Fact]
     public async Task No_se_puede_crear_una_tarea_en_un_expediente_fuera_del_alcance()
     {
         int diego = await IdPorEmailAsync(Diego);

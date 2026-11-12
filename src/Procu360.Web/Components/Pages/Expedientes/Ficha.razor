@@ -103,7 +103,7 @@ else if (_encabezado is not null)
                         <table class="table">
                             <thead><tr><th>Persona</th><th>Rol</th><th>Documento</th><th>CUIT</th><th>Domicilio principal</th></tr></thead>
                             <tbody>
-                                @foreach (var p in _personas)
+                                @foreach (var p in PaginaDe(_personas, _paginaPersonas))
                                 {
                                     <tr>
                                         <td class="principal-celda">@p.Nombre</td>
@@ -116,6 +116,8 @@ else if (_encabezado is not null)
                             </tbody>
                         </table>
                     </div>
+                    <Paginador Total="_personas.Count" Pagina="_paginaPersonas" Paginas="PaginasDe(_personas.Count)" Tamanio="_tamanioFicha"
+                               IrAPagina="p => _paginaPersonas = p" CambiarTamanio="t => CambiarTamanioFicha(t)" />
                 }
             </section>
             break;
@@ -140,7 +142,7 @@ else if (_encabezado is not null)
                         <table class="table">
                             <thead><tr><th>Año</th><th>Cuota</th><th>Concepto</th><th>Vencimiento</th><th class="text-end">Tributo</th><th class="text-end">Recargo</th></tr></thead>
                             <tbody>
-                                @foreach (var p in _periodos)
+                                @foreach (var p in PaginaDe(_periodos, _paginaPeriodos))
                                 {
                                     <tr>
                                         <td class="nro">@p.Anio</td><td>@(p.Cuota ?? "—")</td><td>@(p.Concepto ?? "—")</td>
@@ -149,13 +151,15 @@ else if (_encabezado is not null)
                                     </tr>
                                 }
                                 <tr>
-                                    <td colspan="4" class="principal-celda">Total</td>
+                                    <td colspan="4" class="principal-celda">Total (@_periodos.Count períodos)</td>
                                     <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Tributo))</td>
                                     <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Recargo))</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <Paginador Total="_periodos.Count" Pagina="_paginaPeriodos" Paginas="PaginasDe(_periodos.Count)" Tamanio="_tamanioFicha"
+                               IrAPagina="p => _paginaPeriodos = p" CambiarTamanio="t => CambiarTamanioFicha(t)" />
                 }
             </section>
             break;
@@ -185,7 +189,7 @@ else if (_encabezado is not null)
                         <table class="table">
                             <thead><tr><th>Tarea</th><th>Vence</th><th>Responsable</th><th>Estado</th></tr></thead>
                             <tbody>
-                                @foreach (var t in _tareas)
+                                @foreach (var t in PaginaDe(_tareas, _paginaTareas))
                                 {
                                     <tr>
                                         <td class="principal-celda">@t.Titulo</td>
@@ -197,6 +201,8 @@ else if (_encabezado is not null)
                             </tbody>
                         </table>
                     </div>
+                    <Paginador Total="_tareas.Count" Pagina="_paginaTareas" Paginas="PaginasDe(_tareas.Count)" Tamanio="_tamanioFicha"
+                               IrAPagina="p => _paginaTareas = p" CambiarTamanio="t => CambiarTamanioFicha(t)" />
                 }
             </section>
             break;
@@ -304,8 +310,23 @@ else if (_encabezado is not null)
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _patrocinantes = [];
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _abogadosInterior = [];
     private bool _puedeEditar;
+    private int _tamanioFicha = 25;
+    private int _paginaPersonas = 1;
+    private int _paginaPeriodos = 1;
+    private int _paginaTareas = 1;
 
     private string Pestana => Pestanas.Any(p => p.Clave == Tab) ? Tab! : "resumen";
+
+    private int PaginasDe(int total) => Math.Max(1, (int)Math.Ceiling(total / (double)_tamanioFicha));
+
+    private IEnumerable<T> PaginaDe<T>(IReadOnlyList<T> lista, int pagina) =>
+        lista.Skip((Math.Clamp(pagina, 1, PaginasDe(lista.Count)) - 1) * _tamanioFicha).Take(_tamanioFicha);
+
+    private void CambiarTamanioFicha(int tamanio)
+    {
+        _tamanioFicha = tamanio;
+        _paginaPersonas = _paginaPeriodos = _paginaTareas = 1;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -326,6 +347,7 @@ else if (_encabezado is not null)
             _encabezado = _visible ? await Servicio.EncabezadoAsync(Id) : null;
             _idCargado = Id;
             _pestanaCargada = null;
+            _paginaPersonas = _paginaPeriodos = _paginaTareas = 1;
         }
         if (!_visible || _pestanaCargada == Pestana) return;
 

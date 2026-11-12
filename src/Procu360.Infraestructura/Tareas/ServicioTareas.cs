@@ -28,8 +28,9 @@ public sealed class ServicioTareas(
 {
     private const int TamanioPagina = 25;
 
-    public async Task<ResultadoTareas> ListarAsync(FiltroTareas filtro, int pagina, CancellationToken ct = default)
+    public async Task<ResultadoTareas> ListarAsync(FiltroTareas filtro, int pagina, int tamanio = TamanioPagina, CancellationToken ct = default)
     {
+        tamanio = Math.Clamp(tamanio, 1, 100);
         var usuario = contexto.UsuarioId ?? throw new InvalidOperationException("No hay usuario en la sesión.");
         var hoy = ServicioMiDia.HoyEnCordoba();
         var enAlcance = await alcance.IdsAsync(ct);
@@ -47,11 +48,11 @@ public sealed class ServicioTareas(
         };
 
         var total = await consulta.CountAsync(ct);
-        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)TamanioPagina));
+        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)tamanio));
         var numero = Math.Clamp(pagina, 1, paginas);
 
         var filas = await consulta.OrderBy(t => t.FechaVencimiento == null).ThenBy(t => t.FechaVencimiento).ThenBy(t => t.Id)
-            .Skip((numero - 1) * TamanioPagina).Take(TamanioPagina)
+            .Skip((numero - 1) * tamanio).Take(tamanio)
             .Select(t => new FilaTarea(
                 t.Id, t.Titulo, t.FechaVencimiento, t.Estado, t.ExpedienteId,
                 db.Expediente.Where(e => e.Id == t.ExpedienteId).Select(e => (int?)e.NroOrden).FirstOrDefault(),

@@ -131,22 +131,8 @@ else
         </table>
     </div>
 
-    @if (_resultado.Paginas > 1)
-    {
-        <nav aria-label="Paginación">
-            <ul class="pagination">
-                @if (_resultado.Pagina > 1)
-                {
-                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina - 1)">← Anterior</a></li>
-                }
-                <li class="page-item disabled"><span class="page-link">Página @_resultado.Pagina de @_resultado.Paginas</span></li>
-                @if (_resultado.Pagina < _resultado.Paginas)
-                {
-                    <li class="page-item"><a class="page-link" href="@Enlace(_resultado.Pagina + 1)">Siguiente →</a></li>
-                }
-            </ul>
-        </nav>
-    }
+    <Paginador Total="_resultado.Total" Pagina="_resultado.Pagina" Paginas="_resultado.Paginas" Tamanio="Tamanio"
+               Enlace="p => Enlace(p, Tamanio)" EnlaceTamanio="t => Enlace(1, t)" />
 }
 
 @code {
@@ -156,6 +142,7 @@ else
     [SupplyParameterFromQuery(Name = "sinMov")] public bool? SinMov { get; set; }
     [SupplyParameterFromQuery(Name = "bajas")] public bool? Bajas { get; set; }
     [SupplyParameterFromQuery(Name = "pagina")] public int? Pagina { get; set; }
+    [SupplyParameterFromQuery(Name = "tam")] public int? Tam { get; set; }
 
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _comitentes = [];
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _instancias = [];
@@ -163,6 +150,8 @@ else
 
     private bool HayCriterio => !string.IsNullOrWhiteSpace(Q) || Comitente is not null || Instancia is not null
         || SinMov == true || Bajas == true;
+
+    private int Tamanio => Paginador.Tamanios.Contains(Tam ?? 0) ? Tam!.Value : 25;
 
     protected override async Task OnInitializedAsync()
     {
@@ -177,12 +166,14 @@ else
             InstanciaId: Instancia,
             SinMovimiento: SinMov == true,
             IncluirDadosDeBaja: Bajas == true,
-            Pagina: Pagina ?? 1));
+            Pagina: Pagina ?? 1,
+            TamanioPagina: Tamanio));
     }
 
-    private string Enlace(int pagina)
+    private string Enlace(int pagina, int tamanio)
     {
         var partes = new List<string> { $"pagina={pagina}" };
+        if (tamanio != 25) partes.Add($"tam={tamanio}");
         if (!string.IsNullOrWhiteSpace(Q)) partes.Add($"q={Uri.EscapeDataString(Q)}");
         if (Comitente is int c) partes.Add($"comitente={c}");
         if (Instancia is int i) partes.Add($"instancia={i}");

@@ -29,8 +29,9 @@ public sealed class ServicioNovedades(
 {
     private const int TamanioPagina = 25;
 
-    public async Task<ResultadoNovedades> ListarAsync(PestanaNovedades pestana, int pagina, CancellationToken ct = default)
+    public async Task<ResultadoNovedades> ListarAsync(PestanaNovedades pestana, int pagina, int tamanio = TamanioPagina, CancellationToken ct = default)
     {
+        tamanio = Math.Clamp(tamanio, 1, 100);
         var (todo, enAlcance) = await AlcanceAsync(ct);
         var consulta = db.NovedadJudicial.AsQueryable();
 
@@ -45,11 +46,11 @@ public sealed class ServicioNovedades(
             : todo);
 
         var total = await consulta.CountAsync(ct);
-        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)TamanioPagina));
+        var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)tamanio));
         var numero = Math.Clamp(pagina, 1, paginas);
 
         var filas = await consulta.OrderByDescending(n => n.Fecha).ThenByDescending(n => n.Id)
-            .Skip((numero - 1) * TamanioPagina).Take(TamanioPagina)
+            .Skip((numero - 1) * tamanio).Take(tamanio)
             .Select(n => new FilaNovedad(
                 n.Id, n.Fecha, n.Texto, n.Fuente, n.Leida, n.ExpedienteId,
                 db.Expediente.Where(e => e.Id == n.ExpedienteId).Select(e => (int?)e.NroOrden).FirstOrDefault(),

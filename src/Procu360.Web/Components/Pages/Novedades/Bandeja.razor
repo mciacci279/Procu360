@@ -98,27 +98,14 @@ else
         </table>
     </div>
 
-    @if (_resultado.Paginas > 1)
-    {
-        <nav aria-label="Paginación">
-            <ul class="pagination">
-                @if (_resultado.Pagina > 1)
-                {
-                    <li class="page-item"><a class="page-link" href="/novedades?p=@_pestana&pagina=@(_resultado.Pagina - 1)">← Anterior</a></li>
-                }
-                <li class="page-item disabled"><span class="page-link">Página @_resultado.Pagina de @_resultado.Paginas</span></li>
-                @if (_resultado.Pagina < _resultado.Paginas)
-                {
-                    <li class="page-item"><a class="page-link" href="/novedades?p=@_pestana&pagina=@(_resultado.Pagina + 1)">Siguiente →</a></li>
-                }
-            </ul>
-        </nav>
-    }
+    <Paginador Total="_resultado.Total" Pagina="_resultado.Pagina" Paginas="_resultado.Paginas" Tamanio="Tamanio"
+               Enlace="p => Enlace(p, Tamanio)" EnlaceTamanio="t => Enlace(1, t)" />
 }
 
 @code {
     [SupplyParameterFromQuery(Name = "p")] public string? P { get; set; }
     [SupplyParameterFromQuery(Name = "pagina")] public int? Pagina { get; set; }
+    [SupplyParameterFromQuery(Name = "tam")] public int? Tam { get; set; }
 
     private bool _exito;
     private string? _mensaje;
@@ -128,6 +115,11 @@ else
     private DateOnly _venceFecha = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().AddDays(7);
 
     private string _pestana => P is "revisadas" or "sin-vincular" ? P : "sin-revisar";
+
+    private int Tamanio => Paginador.Tamanios.Contains(Tam ?? 0) ? Tam!.Value : 25;
+
+    private string Enlace(int pagina, int tamanio) =>
+        $"/novedades?p={_pestana}&pagina={pagina}" + (tamanio != 25 ? $"&tam={tamanio}" : "");
 
     private static Procu360.Infraestructura.Novedades.PestanaNovedades Pestana(string p) => p switch
     {
@@ -149,7 +141,7 @@ else
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
-        var clave = $"{_pestana}|{Pagina ?? 1}";
+        var clave = $"{_pestana}|{Pagina ?? 1}|{Tamanio}";
         if (clave == _cargada) return;
         if (_cargada is not null) _mensaje = null;
         await CargarAsync();
@@ -157,7 +149,7 @@ else
     }
 
     private async Task CargarAsync() =>
-        _resultado = await Novedades.ListarAsync(Pestana(_pestana), Pagina ?? 1);
+        _resultado = await Novedades.ListarAsync(Pestana(_pestana), Pagina ?? 1, Tamanio);
 
     private async Task MarcarAsync(long id)
     {

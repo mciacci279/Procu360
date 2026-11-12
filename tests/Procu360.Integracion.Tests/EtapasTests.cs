@@ -224,6 +224,19 @@ public class EtapasTests : IDisposable
     }
 
     [Fact]
+    public async Task El_tamanio_de_pagina_de_diligencias_se_respeta()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEtapas>();
+
+        var pagina = await servicio.ListarDiligenciasAsync(false, 1, 1);
+        if (pagina.Total == 0) return; // sin diligencias no hay qué paginar
+
+        Assert.Single(pagina.Filas);
+        Assert.Equal(pagina.Total, pagina.Paginas);
+    }
+
+    [Fact]
     public async Task Los_feriados_no_habiles_incluyen_nacionales_y_provinciales_del_Estudio()
     {
         using var ambito = Ambito(Laura);

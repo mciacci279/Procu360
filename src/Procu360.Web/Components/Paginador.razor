@@ -1,0 +1,80 @@
+@* Barra de paginación de las grillas: Anterior/Siguiente y tamaño de página configurable (25 por defecto).
+   Dos modos según la página: por enlaces (páginas estáticas como Expedientes, que navegan con la URL)
+   o por eventos (páginas interactivas). Al cambiar el tamaño se vuelve a la página 1. *@
+
+@if (Paginas > 1 || Total > Tamanios[0])
+{
+    <nav class="paginador" aria-label="Paginación">
+        <ul class="pagination">
+            @if (Pagina > 1)
+            {
+                <li class="page-item">
+                    @if (Enlace is not null)
+                    {
+                        <a class="page-link" href="@Enlace(Pagina - 1)">← Anterior</a>
+                    }
+                    else
+                    {
+                        <button type="button" class="page-link" @onclick="() => IrAPagina.InvokeAsync(Pagina - 1)">← Anterior</button>
+                    }
+                </li>
+            }
+            <li class="page-item disabled"><span class="page-link">Página @Pagina de @Paginas</span></li>
+            @if (Pagina < Paginas)
+            {
+                <li class="page-item">
+                    @if (Enlace is not null)
+                    {
+                        <a class="page-link" href="@Enlace(Pagina + 1)">Siguiente →</a>
+                    }
+                    else
+                    {
+                        <button type="button" class="page-link" @onclick="() => IrAPagina.InvokeAsync(Pagina + 1)">Siguiente →</button>
+                    }
+                </li>
+            }
+        </ul>
+
+        @if (Total > Tamanios[0])
+        {
+            <div class="tamanios">
+                <span>Por página</span>
+                <div class="mini-segmentado" role="group" aria-label="Registros por página">
+                    @foreach (var t in Tamanios)
+                    {
+                        var tamanio = t;
+                        @if (EnlaceTamanio is not null)
+                        {
+                            <a class="@(Tamanio == tamanio ? "activo" : "")" aria-current="@(Tamanio == tamanio ? "true" : null)"
+                               href="@EnlaceTamanio(tamanio)">@tamanio</a>
+                        }
+                        else
+                        {
+                            <button type="button" class="@(Tamanio == tamanio ? "activo" : "")" aria-pressed="@(Tamanio == tamanio ? "true" : "false")"
+                                    @onclick="() => CambiarTamanio.InvokeAsync(tamanio)">@tamanio</button>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </nav>
+}
+
+@code {
+    /// <summary>Opciones de registros por página. La del medio (25) es la de defecto en los servicios.</summary>
+    public static readonly int[] Tamanios = [10, 25, 50, 100];
+
+    [Parameter, EditorRequired] public int Total { get; set; }
+    [Parameter, EditorRequired] public int Pagina { get; set; }
+    [Parameter, EditorRequired] public int Paginas { get; set; }
+    [Parameter] public int Tamanio { get; set; } = 25;
+
+    /// <summary>Modo enlaces: arma la URL de una página. Si es null se usan los eventos.</summary>
+    [Parameter] public Func<int, string>? Enlace { get; set; }
+    /// <summary>Modo enlaces: arma la URL con otro tamaño de página (debe volver a la página 1).</summary>
+    [Parameter] public Func<int, string>? EnlaceTamanio { get; set; }
+
+    [Parameter] public EventCallback<int> IrAPagina { get; set; }
+    /// <summary>El contenedor debe volver a la página 1 al cambiar el tamaño.</summary>
+    [Parameter] public EventCallback<int> CambiarTamanio { get; set; }
+}

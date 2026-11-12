@@ -72,24 +72,13 @@ else
         </table>
     </div>
 
-    @if (_pagina.Paginas > 1)
-    {
-        <nav aria-label="Paginación">
-            <ul class="pagination">
-                <li class="page-item @(_pagina.Pagina <= 1 ? "disabled" : "")">
-                    <button class="page-link" disabled="@(_pagina.Pagina <= 1)" @onclick="() => IrAsync(_pagina.Pagina - 1)">← Anterior</button>
-                </li>
-                <li class="page-item disabled"><span class="page-link">Página @_pagina.Pagina de @_pagina.Paginas</span></li>
-                <li class="page-item @(_pagina.Pagina >= _pagina.Paginas ? "disabled" : "")">
-                    <button class="page-link" disabled="@(_pagina.Pagina >= _pagina.Paginas)" @onclick="() => IrAsync(_pagina.Pagina + 1)">Siguiente →</button>
-                </li>
-            </ul>
-        </nav>
-    }
+    <Paginador Total="_pagina.Total" Pagina="_pagina.Pagina" Paginas="_pagina.Paginas" Tamanio="_tamanio"
+               IrAPagina="IrAsync" CambiarTamanio="CambiarTamanioAsync" />
 }
 
 @code {
     private bool _soloAbiertas = true;
+    private int _tamanio = 25;
     private Procu360.Infraestructura.Etapas.PaginaDiligencias? _pagina;
 
     private static DateOnly Hoy => Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba();
@@ -103,7 +92,7 @@ else
     }
 
     private async Task CargarAsync(int pagina) =>
-        _pagina = await Servicio.ListarDiligenciasAsync(_soloAbiertas, pagina);
+        _pagina = await Servicio.ListarDiligenciasAsync(_soloAbiertas, pagina, _tamanio);
 
     private async Task CambiarFiltroAsync(bool soloAbiertas)
     {
@@ -112,6 +101,12 @@ else
     }
 
     private async Task IrAsync(int pagina) => await CargarAsync(pagina);
+
+    private async Task CambiarTamanioAsync(int tamanio)
+    {
+        _tamanio = tamanio;
+        await CargarAsync(1);
+    }
 
     private static string NombreEstado(byte estado) => estado switch
     {

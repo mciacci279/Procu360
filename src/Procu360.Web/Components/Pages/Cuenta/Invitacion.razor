@@ -19,6 +19,10 @@
     }
     else
     {
+        @if (_sesionAbierta is not null)
+        {
+            <div class="alert alert-info" role="status">Hay una sesión abierta como @_sesionAbierta. Al activar esta cuenta se va a cerrar.</div>
+        }
         <form method="post" action="/cuenta/invitacion">
             <input type="hidden" name="__RequestVerificationToken" value="@_token" />
             <input type="hidden" name="usuarioId" value="@U" />
@@ -41,9 +45,15 @@
 
 @code {
     private string _token = string.Empty;
+    private string? _sesionAbierta;
 
-    protected override void OnInitialized() =>
-        _token = Antiforgery.GetAndStoreTokens(Http.HttpContext!).RequestToken ?? string.Empty;
+    protected override void OnInitialized()
+    {
+        var http = Http.HttpContext!;
+        _token = Antiforgery.GetAndStoreTokens(http).RequestToken ?? string.Empty;
+        if (http.User.Identity?.IsAuthenticated == true)
+            _sesionAbierta = string.IsNullOrWhiteSpace(http.User.Identity.Name) ? "otro usuario" : http.User.Identity.Name;
+    }
 
     [SupplyParameterFromQuery(Name = "u")] public int? U { get; set; }
     [SupplyParameterFromQuery(Name = "t")] public string? T { get; set; }

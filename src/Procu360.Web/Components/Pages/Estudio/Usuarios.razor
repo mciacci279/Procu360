@@ -8,11 +8,22 @@
 
 <PageTitle>Usuarios del Estudio · Procu360</PageTitle>
 
-<h1 class="h3 mb-3">Usuarios del Estudio</h1>
+<div class="encabezado-pagina">
+    <div>
+        <h1>Usuarios del Estudio</h1>
+        <p class="bajada">Integrantes, sus roles y el alcance de cada uno.</p>
+    </div>
+    @if (_puedeAdministrar)
+    {
+        <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="/estudio/invitaciones">
+            <Icono Nombre="mas" Tamano="16" Grosor="2.2" /> Invitar integrante
+        </a>
+    }
+</div>
 
 @if (!_cargado)
 {
-    <p>Cargando…</p>
+    <p class="text-muted">Cargando…</p>
 }
 else if (!_puedeAdministrar)
 {
@@ -25,72 +36,127 @@ else
         <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
     }
 
-    <div class="table-responsive mb-4">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr><th>Persona</th><th>Email</th><th>Estado</th><th>Roles</th><th></th></tr>
-            </thead>
-            <tbody>
-                @foreach (var m in _membresias)
-                {
-                    <tr>
-                        <td>@m.NombreCompleto</td>
-                        <td>@m.Email</td>
-                        <td>@NombreEstado(m.Estado)</td>
-                        <td>
-                            @foreach (var a in m.Roles)
-                            {
-                                <span class="badge text-bg-secondary me-1">
-                                    @a.NombreRol@(a.ComitenteId is int c ? $" · comitente {c}" : "")
-                                    <button class="btn btn-link btn-sm p-0 ms-1 text-white" title="Quitar rol"
-                                            @onclick="() => QuitarAsync(a.AsignacionId)">✕</button>
-                                </span>
-                            }
-                        </td>
-                        <td>
-                            @if (m.Estado == 3)
-                            {
-                                <button class="btn btn-outline-danger btn-sm" @onclick="() => DesactivarAsync(m.MembresiaId)">Desactivar</button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+    <div class="columnas">
+        <div class="principal">
+            <section class="tarjeta" aria-labelledby="titulo-integrantes">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul"><Icono Nombre="usuarios" Tamano="18" Grosor="2" /></span>
+                    <h2 id="titulo-integrantes">Integrantes</h2>
+                    <input class="form-control" style="max-width: 240px" type="search" placeholder="Filtrar por nombre o email"
+                           aria-label="Filtrar integrantes" value="@_filtroTexto" @oninput="FiltrarLista" />
+                </div>
 
-    <div class="card p-3" style="max-width: 640px;">
-        <h2 class="h5">Asignar rol</h2>
-        <div class="row g-2 align-items-end">
-            <div class="col-md-5">
-                <label class="form-label" for="membresia">Persona</label>
-                <select id="membresia" class="form-select" @bind="_membresiaElegida">
-                    <option value="0">Elegí…</option>
-                    @foreach (var m in _membresias.Where(x => x.Estado == 3))
-                    {
-                        <option value="@m.MembresiaId">@m.NombreCompleto</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label" for="rol">Rol</label>
-                <select id="rol" class="form-select" @bind="_rolElegido">
-                    <option value="0">Elegí…</option>
-                    @foreach (var r in _roles)
-                    {
-                        <option value="@r.Id">@r.Nombre</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label" for="comitente">Comitente</label>
-                <input id="comitente" class="form-control" type="number" min="1" @bind="_comitenteElegido" />
-            </div>
-            <div class="col-md-1">
-                <button class="btn btn-primary w-100" @onclick="AsignarAsync">+</button>
-            </div>
+                @if (Filtradas.Count == 0)
+                {
+                    <p class="text-muted mb-0">No hay integrantes que coincidan con el filtro.</p>
+                }
+                else
+                {
+                    <div class="tabla-contenedor">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Persona</th><th>Estado</th><th>Roles</th><th class="text-end">Acciones</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in FilasPagina)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="principal-celda">@m.NombreCompleto</span>
+                                            @if (m.Email.Length > LargoEmail)
+                                            {
+                                                <span class="secundario recortado" title="@m.Email" role="button" tabindex="0"
+                                                      @onclick="() => AlternarEmail(m.MembresiaId)">@EmailVisible(m)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="secundario">@m.Email</span>
+                                            }
+                                        </td>
+                                        <td><span class="pastilla @ColorEstado(m.Estado)">@NombreEstado(m.Estado)</span></td>
+                                        <td>
+                                            @if (m.Roles.Count == 0)
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                            @foreach (var a in m.Roles)
+                                            {
+                                                <span class="pastilla azul me-1 mb-1">
+                                                    @a.NombreRol@(a.ComitenteId is int c ? $" · solo {NombreComitente(c)}" : "")
+                                                    <button class="quitar" type="button" title="Quitar rol" aria-label="Quitar rol @a.NombreRol"
+                                                            @onclick="() => QuitarAsync(a.AsignacionId)">✕</button>
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (m.Estado == 3)
+                                            {
+                                                <button class="btn btn-outline-danger btn-sm" @onclick="() => DesactivarAsync(m.MembresiaId)">Desactivar</button>
+                                            }
+                                            else if (m.Estado == 4)
+                                            {
+                                                <button class="btn btn-outline-success btn-sm" @onclick="() => ReactivarAsync(m.MembresiaId)">Reactivar</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <Paginador Total="Filtradas.Count" Pagina="_paginaLista" Paginas="PaginasLista" Tamanio="_tamanioLista"
+                               IrAPagina="p => _paginaLista = p" CambiarTamanio="CambiarTamanioLista" />
+                }
+            </section>
         </div>
-        <div class="form-text">El comitente solo se completa para roles con ámbito por comitente.</div>
+
+        <div class="lateral">
+            <section class="tarjeta panel-accion" aria-labelledby="titulo-asignar">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul"><Icono Nombre="mas" Tamano="18" Grosor="2.2" /></span>
+                    <h2 id="titulo-asignar">Asignar rol</h2>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="membresia">Persona</label>
+                    <select id="membresia" class="form-select" @bind="_membresiaElegida">
+                        <option value="0">Elegí…</option>
+                        @foreach (var m in _membresias.Where(x => x.Estado == 3))
+                        {
+                            <option value="@m.MembresiaId">@m.NombreCompleto</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="rol">Rol</label>
+                    <select id="rol" class="form-select" @bind="_rolElegido" @bind:after="AlCambiarRol">
+                        <option value="0">Elegí…</option>
+                        @foreach (var r in _roles)
+                        {
+                            <option value="@r.Id">@r.Nombre</option>
+                        }
+                    </select>
+                </div>
+                @if (RolElegidoEsPorComitente)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="comitente">Comitente</label>
+                        <select id="comitente" class="form-select" @bind="_comitenteElegido">
+                            <option value="0">Elegí…</option>
+                            @foreach (var c in _comitentes)
+                            {
+                                <option value="@c.Id">@c.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (DescripcionAlcance is { } alcance)
+                {
+                    <p class="form-text mt-0 mb-3">@alcance</p>
+                }
+                <button class="btn btn-primary w-100" @onclick="AsignarAsync">Asignar rol</button>
+                <p class="form-text mb-0 mt-3">Los roles y sus permisos se definen en <a href="/estudio/roles">Roles y permisos</a>.</p>
+            </section>
+        </div>
     </div>
 }
 
@@ -101,9 +167,68 @@ else
     private IReadOnlyList<VistaRol> _roles = [];
     private int _membresiaElegida;
     private int _rolElegido;
-    private int? _comitenteElegido;
+    private int _comitenteElegido;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _comitentes = [];
     private string? _mensaje;
     private bool _exito;
+    private string _filtroTexto = string.Empty;
+    private int _paginaLista = 1;
+    private int _tamanioLista = 25;
+
+    private VistaRol? RolElegido => _roles.FirstOrDefault(r => r.Id == _rolElegido);
+
+    private bool RolElegidoEsPorComitente => RolElegido?.Ambito == (byte)Procu360.Dominio.Seguridad.Ambito.Comitente;
+
+    /// <summary>Qué expedientes va a ver la persona con el rol elegido.</summary>
+    private string? DescripcionAlcance => (Procu360.Dominio.Seguridad.Ambito?)RolElegido?.Ambito switch
+    {
+        Procu360.Dominio.Seguridad.Ambito.Estudio => "Con este rol, la persona ve todos los expedientes del Estudio.",
+        Procu360.Dominio.Seguridad.Ambito.Comitente => "Este rol da acceso solo a los expedientes de un comitente. Elegí cuál.",
+        Procu360.Dominio.Seguridad.Ambito.Asignados => "Con este rol, la persona ve solo los expedientes que tenga asignados.",
+        _ => null
+    };
+
+    private IReadOnlyList<VistaMembresia> Filtradas => string.IsNullOrWhiteSpace(_filtroTexto)
+        ? _membresias
+        : _membresias.Where(m => m.NombreCompleto.Contains(_filtroTexto, StringComparison.OrdinalIgnoreCase)
+            || m.Email.Contains(_filtroTexto, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private int PaginasLista => Math.Max(1, (int)Math.Ceiling(Filtradas.Count / (double)_tamanioLista));
+
+    private IEnumerable<VistaMembresia> FilasPagina =>
+        Filtradas.Skip((Math.Clamp(_paginaLista, 1, PaginasLista) - 1) * _tamanioLista).Take(_tamanioLista);
+
+    private void FiltrarLista(ChangeEventArgs e)
+    {
+        _filtroTexto = e.Value?.ToString() ?? string.Empty;
+        _paginaLista = 1;
+    }
+
+    private void CambiarTamanioLista(int tamanio)
+    {
+        _tamanioLista = tamanio;
+        _paginaLista = 1;
+    }
+
+    private const int LargoEmail = 25;
+    private readonly HashSet<int> _emailsCompletos = [];
+
+    /// <summary>Recortado a 25 caracteres; el clic (o el tooltip) muestra el email completo.</summary>
+    private string EmailVisible(VistaMembresia m) =>
+        _emailsCompletos.Contains(m.MembresiaId) ? m.Email : m.Email[..LargoEmail] + "…";
+
+    private void AlternarEmail(int membresiaId)
+    {
+        if (!_emailsCompletos.Remove(membresiaId)) _emailsCompletos.Add(membresiaId);
+    }
+
+    private void AlCambiarRol()
+    {
+        if (!RolElegidoEsPorComitente) _comitenteElegido = 0;
+    }
+
+    private string NombreComitente(int id) =>
+        _comitentes.FirstOrDefault(c => c.Id == id)?.Nombre ?? $"comitente {id}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,6 +243,7 @@ else
     {
         _membresias = await Administracion.ListarMembresiasAsync();
         _roles = await Administracion.ListarRolesAsync();
+        _comitentes = await Administracion.ListarComitentesAsync();
     }
 
     private async Task AsignarAsync()
@@ -127,7 +253,13 @@ else
             Informar(false, "Elegí una persona y un rol.");
             return;
         }
-        var resultado = await Administracion.AsignarRolAsync(_membresiaElegida, _rolElegido, _comitenteElegido);
+        if (RolElegidoEsPorComitente && _comitenteElegido == 0)
+        {
+            Informar(false, "Elegí el comitente al que va a tener acceso.");
+            return;
+        }
+        var resultado = await Administracion.AsignarRolAsync(_membresiaElegida, _rolElegido,
+            RolElegidoEsPorComitente ? _comitenteElegido : null);
         Informar(resultado.Exito, resultado.Exito ? "Rol asignado." : resultado.Error);
         if (resultado.Exito) { Autorizacion.Invalidar(); await CargarAsync(); }
     }
@@ -146,6 +278,13 @@ else
         if (resultado.Exito) { Autorizacion.Invalidar(); await CargarAsync(); }
     }
 
+    private async Task ReactivarAsync(int membresiaId)
+    {
+        var resultado = await Administracion.ReactivarMembresiaAsync(membresiaId);
+        Informar(resultado.Exito, resultado.Exito ? "Membresía reactivada: conserva los roles que tenía." : resultado.Error);
+        if (resultado.Exito) { Autorizacion.Invalidar(); await CargarAsync(); }
+    }
+
     private void Informar(bool exito, string? texto)
     {
         _exito = exito;
@@ -160,5 +299,14 @@ else
         4 => "Desactivado",
         5 => "Rechazado",
         _ => "Desconocido"
+    };
+
+    private static string ColorEstado(byte estado) => estado switch
+    {
+        1 => "cian",
+        2 => "ambar",
+        3 => "verde",
+        5 => "roja",
+        _ => "gris"
     };
 }

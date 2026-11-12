@@ -289,6 +289,36 @@ public class SeguridadTests : IDisposable
     }
 
     [Fact]
+    public async Task Reactivar_una_membresia_desactivada_recupera_los_roles_que_tenia()
+    {
+        var persona = await UsuarioPruebaActivoAsync();
+        var membresia = MembresiaDe(Estudio1, persona);
+        await ComoAsync(Estudio1, Laura, s => s.CrearRolAsync("PRUEBA-ROL-REACTIVAR", null, 1, ["expedientes.consultar"]));
+        var rolId = await RolIdAsync(Estudio1, "PRUEBA-ROL-REACTIVAR");
+        await ComoAsync(Estudio1, Laura, s => s.AsignarRolAsync(membresia, rolId, null));
+        await ComoAsync(Estudio1, Laura, s => s.DesactivarMembresiaAsync(membresia));
+        Assert.Empty((await PermisosDeAsync(Estudio1, persona)).Permisos);
+
+        var reactivado = await ComoAsync(Estudio1, Laura, s => s.ReactivarMembresiaAsync(membresia));
+
+        Assert.True(reactivado.Exito);
+        Assert.True((await PermisosDeAsync(Estudio1, persona)).Tiene("expedientes.consultar"));
+    }
+
+    [Fact]
+    public async Task No_se_puede_reactivar_una_membresia_que_nunca_estuvo_activa()
+    {
+        var email = PruebasIdentidad.NuevoEmail();
+        var persona = await PruebasIdentidad.CrearUsuarioConClaveAsync(_sp, email);
+        await PruebasIdentidad.InsertarMembresiaAsync(_sp, Estudio1, persona, EstadosMembresia.Invitado);
+        var membresia = MembresiaDe(Estudio1, persona);
+
+        var resultado = await ComoAsync(Estudio1, Laura, s => s.ReactivarMembresiaAsync(membresia));
+
+        Assert.False(resultado.Exito);
+    }
+
+    [Fact]
     public async Task Los_cambios_de_permisos_quedan_auditados()
     {
         using var antes = Ambito(Estudio1, Laura);
@@ -301,5 +331,22 @@ public class SeguridadTests : IDisposable
         var cantidadDespues = await despues.ServiceProvider.GetRequiredService<Procu360DbContext>()
             .AuditoriaEvento.CountAsync(e => e.Modulo == "usuarios");
         Assert.True(cantidadDespues > cantidadAntes);
+    }
+
+    [Fact]
+    public async Task Los_comitentes_para_asignar_roles_son_los_activos_del_propio_Estudio()
+    {
+        var delEstudio1 = await ComoAsync(Estudio1, Laura, s => s.ListarComitentesAsync());
+
+        using var ambito2 = Ambito(Estudio2, Laura);
+        var idsEstudio2 = await ambito2.ServiceProvider.GetRequiredService<Procu360DbContext>()
+            .Comitente.Select(c => c.Id).ToListAsync();
+        using var ambito1 = Ambito(Estudio1, Laura);
+        var activos1 = await ambito1.ServiceProvider.GetRequiredService<Procu360DbContext>()
+            .Comitente.Where(c => c.Activo).Select(c => c.Id).ToListAsync();
+
+        Assert.NotEmpty(delEstudio1);
+        Assert.Equal(activos1.Order(), delEstudio1.Select(c => c.Id).Order());
+        Assert.DoesNotContain(delEstudio1, c => idsEstudio2.Contains(c.Id));
     }
 }

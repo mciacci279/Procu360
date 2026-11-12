@@ -77,3 +77,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+/// <summary>Visible para las pruebas HTTP (WebApplicationFactory).</summary>
+public partial class Program;
