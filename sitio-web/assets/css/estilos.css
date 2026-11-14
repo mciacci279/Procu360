@@ -1,0 +1,155 @@
+/* Procu360 · procu360.com.ar
+   Estilos del sitio. Los colores y tipografías son los de la aplicación. */
+
+body { margin: 0; background: #0B1220; }
+a { color: #7DD3FC; }
+a:hover { color: #BAE6FD; }
+*:focus-visible { outline: 3px solid #93C5FD; outline-offset: 3px; }
+html { scroll-behavior: smooth; }
+
+/* Párrafos justificados, con corte de palabras en castellano. */
+p { text-align: justify; text-justify: inter-word; hyphens: auto; -webkit-hyphens: auto; }
+
+.serif { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Animaciones generales ---------- */
+@keyframes flotar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes flotar2 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+@keyframes girar { to { transform: rotate(360deg); } }
+@keyframes girarInv { to { transform: rotate(-360deg); } }
+@keyframes balanza { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes platoIzq { 0%, 100% { transform: translateY(5px); } 50% { transform: translateY(-5px); } }
+@keyframes platoDer { 0%, 100% { transform: translateY(-5px); } 50% { transform: translateY(5px); } }
+@keyframes bandera { 0%, 100% { transform: skewY(0deg) scaleX(1); } 50% { transform: skewY(-9deg) scaleX(.92); } }
+@keyframes barrido { 0% { transform: translateY(-120%); } 100% { transform: translateY(220%); } }
+@keyframes cinta { to { transform: translateX(-50%); } }
+@keyframes fluir { to { background-position: -200% 0; } }
+@keyframes subir { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes latido { 0% { box-shadow: 0 0 0 0 rgba(56,189,248,.55); } 70% { box-shadow: 0 0 0 16px rgba(56,189,248,0); } 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); } }
+@keyframes brillo { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes escudo { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes copia { 0% { transform: translateX(0); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(70px); opacity: 0; } }
+
+.flotar { animation: flotar 6s ease-in-out infinite; }
+.flotar2 { animation: flotar2 7s ease-in-out infinite; }
+.flotar3 { animation: flotar 8s ease-in-out 1.2s infinite; }
+.girar { animation: girar 70s linear infinite; transform-origin: 50% 50%; }
+.girarInv { animation: girarInv 90s linear infinite; transform-origin: 50% 50%; }
+.cruz { animation: balanza 5s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0%; }
+.platoIzq { animation: platoIzq 5s ease-in-out infinite; }
+.platoDer { animation: platoDer 5s ease-in-out infinite; }
+.bandera { animation: bandera 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 50%; }
+.barrido { animation: barrido 5.5s ease-in-out infinite; }
+.cinta { animation: cinta 38s linear infinite; }
+.fluir { background: linear-gradient(90deg, rgba(56,189,248,0) 0%, #38BDF8 35%, #3B82F6 50%, rgba(56,189,248,0) 65%); background-size: 200% 100%; animation: fluir 3.5s linear infinite; }
+.subir { animation: subir .9s cubic-bezier(.22,1,.36,1) both; }
+.subir2 { animation: subir .9s cubic-bezier(.22,1,.36,1) .15s both; }
+.subir3 { animation: subir .9s cubic-bezier(.22,1,.36,1) .3s both; }
+.latido { animation: latido 2.2s ease-out infinite; }
+.brillo { animation: brillo 3s ease-in-out infinite; }
+.escudo { animation: escudo 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+.copia { animation: copia 3s linear infinite; }
+.copia2 { animation: copia 3s linear 1s infinite; }
+.copia3 { animation: copia 3s linear 2s infinite; }
+
+/* ---------- Cómo funciona: el expediente recorre las cuatro etapas ---------- */
+@keyframes viaje { 0%, 16% { left: 0; opacity: 1; } 25%, 41% { left: calc((100% + 28px) / 4); } 50%, 66% { left: calc((100% + 28px) / 2); } 75%, 93% { left: calc((100% + 28px) * 3 / 4); opacity: 1; } 97% { left: calc((100% + 28px) * 3 / 4); opacity: 0; } 98% { left: 0; opacity: 0; } 100% { left: 0; opacity: 1; } }
+@keyframes llenar { 0%, 16% { width: 0; } 25%, 41% { width: 33.333%; } 50%, 66% { width: 66.667%; } 75%, 95% { width: 100%; } 100% { width: 0; } }
+@keyframes nodo2 { 0%, 21% { background: #E2E8F0; color: #475569; } 25%, 96% { background: #1D4ED8; color: #FFFFFF; } 100% { background: #E2E8F0; color: #475569; } }
+@keyframes nodo3 { 0%, 46% { background: #E2E8F0; color: #475569; } 50%, 96% { background: #2563EB; color: #FFFFFF; } 100% { background: #E2E8F0; color: #475569; } }
+@keyframes nodo4 { 0%, 71% { background: #E2E8F0; color: #475569; } 75%, 96% { background: #0284C7; color: #FFFFFF; } 100% { background: #E2E8F0; color: #475569; } }
+@keyframes estado1 { 0%, 20% { opacity: 1; transform: none; } 24%, 97% { opacity: 0; transform: translateY(-8px); } 100% { opacity: 1; transform: none; } }
+@keyframes estado2 { 0%, 22% { opacity: 0; transform: translateY(8px); } 26%, 45% { opacity: 1; transform: none; } 49%, 100% { opacity: 0; transform: translateY(-8px); } }
+@keyframes estado3 { 0%, 47% { opacity: 0; transform: translateY(8px); } 51%, 70% { opacity: 1; transform: none; } 74%, 100% { opacity: 0; transform: translateY(-8px); } }
+@keyframes estado4 { 0%, 72% { opacity: 0; transform: translateY(8px); } 76%, 94% { opacity: 1; transform: none; } 97%, 100% { opacity: 0; } }
+@keyframes sello { 0%, 74% { opacity: 0; transform: scale(1.7) rotate(-12deg); } 78%, 94% { opacity: 1; transform: scale(1) rotate(-12deg); } 97%, 100% { opacity: 0; transform: scale(1) rotate(-12deg); } }
+.viaje { animation: viaje 12s cubic-bezier(.65,0,.35,1) infinite; }
+.llenar { animation: llenar 12s cubic-bezier(.65,0,.35,1) infinite; }
+.nodo2 { animation: nodo2 12s ease infinite; }
+.nodo3 { animation: nodo3 12s ease infinite; }
+.nodo4 { animation: nodo4 12s ease infinite; }
+.estado1 { animation: estado1 12s ease infinite; }
+.estado2 { animation: estado2 12s ease infinite; }
+.estado3 { animation: estado3 12s ease infinite; }
+.estado4 { animation: estado4 12s ease infinite; }
+.sello { animation: sello 12s ease infinite; }
+
+/* ---------- Nosotros: tarjetas con contador ---------- */
+@keyframes destello { 0% { transform: translateX(-120%) skewX(-20deg); } 55%, 100% { transform: translateX(330%) skewX(-20deg); } }
+.destello { animation: destello 4.5s ease-in-out infinite; }
+.barra-llena { transform: scaleX(0); transform-origin: 0 50%; transition: transform 1.8s cubic-bezier(.22,1,.36,1); }
+.visible .barra-llena, .no-js .barra-llena { transform: scaleX(1); }
+.stat { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s ease; }
+.stat:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -30px rgba(29,78,216,.6); }
+
+/* ---------- Cómo empezamos: la luz recorre las etapas ---------- */
+@keyframes avanzar { 0% { left: 0; opacity: 0; } 4% { opacity: 1; } 25% { left: 33.333%; } 50% { left: 66.667%; } 75% { left: 100%; opacity: 1; } 85%, 100% { left: 100%; opacity: 0; } }
+@keyframes etapaActiva { 0%, 22% { border-color: #93C5FD; box-shadow: 0 22px 44px -26px rgba(29,78,216,.55); transform: translateY(-6px); } 27%, 100% { border-color: #E2E8F0; box-shadow: none; transform: none; } }
+@keyframes numeroActivo { 0%, 22% { transform: scale(1.18); box-shadow: 0 0 0 6px #F4F6FA, 0 0 0 11px rgba(56,189,248,.35); } 27%, 100% { transform: scale(1); box-shadow: 0 0 0 6px #F4F6FA; } }
+.punto-viaje { animation: avanzar 8s linear infinite; }
+.paso-2 { animation-delay: 2s; }
+.paso-3 { animation-delay: 4s; }
+.paso-4 { animation-delay: 6s; }
+.paso-tarjeta { animation: etapaActiva 8s ease infinite; animation-delay: inherit; }
+.paso-num { animation: numeroActivo 8s ease infinite; animation-delay: inherit; }
+
+/* ---------- Tarjetas y botones ---------- */
+.tarjeta-func { transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s ease, border-color .3s ease; }
+.tarjeta-func:hover { transform: translateY(-6px); border-color: #93C5FD; box-shadow: 0 24px 48px -24px rgba(29,78,216,.35); }
+.boton { transition: transform .2s ease, background .2s ease; }
+.boton:hover { transform: translateY(-2px); }
+
+/* ---------- Formulario de contacto ---------- */
+.campo { transition: border-color .2s ease, box-shadow .2s ease; }
+.campo:focus { outline: none; border-color: #38BDF8; box-shadow: 0 0 0 4px rgba(56,189,248,.18); }
+.campo::placeholder { color: #64748B; }
+.enviar { transition: background-position .45s ease, transform .2s ease, opacity .2s ease; }
+.enviar:hover { background-position: 100% 0; transform: translateY(-2px); }
+.enviar[disabled] { opacity: .7; cursor: progress; transform: none; }
+.enviar .icono-envio { transition: transform .35s cubic-bezier(.22,1,.36,1); }
+.enviar:hover .icono-envio { transform: translate(4px, -4px); }
+.oculto-trampa { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ---------- WhatsApp flotante (mismo diseño que cm-tech.com.ar) ---------- */
+.wa-float { position: fixed; right: 24px; bottom: 24px; z-index: 50; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 50%; background: #25d366; box-shadow: 0 10px 28px rgba(37,211,102,.45); transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease; }
+.wa-float:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 16px 36px rgba(37,211,102,.55); }
+.wa-float:active { transform: scale(.96); }
+.wa-pulso { position: absolute; inset: 0; border-radius: 50%; background: #25d366; z-index: 0; animation: waPulse 2.2s ease-out infinite; }
+@keyframes waPulse { 0% { transform: scale(1); opacity: .55; } 70% { transform: scale(1.6); opacity: 0; } 100% { transform: scale(1.6); opacity: 0; } }
+
+/* ---------- Botón con destellos: ir al final y volver ---------- */
+.recorrer { position: fixed; right: 30px; bottom: 104px; z-index: 50; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; display: grid; place-items: center; }
+.recorrer .aro { position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(from 0deg, #38BDF8, #FBBF24, #1D4ED8, #38BDF8); animation: girar 3s linear infinite; }
+.recorrer .nucleo { position: absolute; inset: 0; border-radius: 50%; background: #0B1220; box-shadow: 0 12px 30px -10px rgba(29,78,216,.7); transition: background .2s ease; }
+.recorrer:hover .nucleo { background: #111A2E; }
+.recorrer:focus-visible { outline: 3px solid #93C5FD; outline-offset: 5px; }
+.recorrer .flecha { position: relative; transition: transform .45s cubic-bezier(.22,1,.36,1); }
+.recorrer .flecha.arriba { transform: rotate(180deg); }
+.recorrer .chispa { position: absolute; width: 11px; height: 11px; animation: chispa 1.8s ease-in-out infinite; }
+@keyframes chispa { 0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; } 50% { transform: scale(1) rotate(90deg); opacity: 1; } }
+
+/* ---------- Pantallas chicas ---------- */
+@media (max-width: 860px) {
+  .carril, .camino { display: none !important; }
+  .pasos { padding-top: 0 !important; }
+  .pasos-lista, .etapas { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 760px) {
+  .menu { display: none !important; }
+}
+@media (max-width: 600px) {
+  .ilustracion { height: 440px !important; }
+  .solo-ancho { display: none !important; }
+  .recorrer { right: 24px; bottom: 96px; }
+  .wa-float { right: 18px; bottom: 18px; width: 54px; height: 54px; }
+  .tarjeta-cta { padding: 48px 28px !important; }
+}
+
+/* Quien pidió menos movimiento en el sistema ve todo quieto, pero completo. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .barra-llena { transform: scaleX(1); }
+  .estado1 { opacity: 1; }
+}

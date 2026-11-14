@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://procu360.com.ar/sitemap.xml
