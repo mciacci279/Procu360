@@ -56,3 +56,21 @@ export function registrarAtajo(referencia) {
 function esCampoDeEdicion(elemento) {
     return !!elemento && (elemento.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(elemento.tagName));
 }
+
+// El degradado del borde inferior del menú solo corresponde si hay items fuera de vista:
+// si no, recorta el último título en pantallas de poca altura.
+export function vigilarDesborde() {
+    const nav = document.querySelector(".barra nav");
+    if (!nav) return;
+
+    const revisar = () => {
+        const hayMas = nav.scrollHeight - nav.scrollTop - nav.clientHeight > 4;
+        nav.classList.toggle("con-mas", hayMas);
+    };
+
+    revisar();
+    nav.addEventListener("scroll", revisar, { passive: true });
+    window.addEventListener("resize", revisar, { passive: true });
+    // La barra cambia de ancho al plegarse, y eso reacomoda los items.
+    if (window.ResizeObserver) new ResizeObserver(revisar).observe(nav);
+}

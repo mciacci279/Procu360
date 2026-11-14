@@ -19,6 +19,10 @@ public class EdicionExpedienteTests : IDisposable
     private readonly string? _caratulaOriginal;
     private readonly string? _observacionesOriginal;
     private readonly int? _juzgadoOriginal, _procuradorOriginal, _patrocinanteOriginal, _abogadoOriginal;
+    private readonly bool _comparecioOriginal, _granContribuyenteOriginal, _fiscaOriginal;
+    private readonly DateOnly? _fechaComparecioOriginal;
+    private readonly string? _abogadoContraparteOriginal, _domicilioContraparteOriginal;
+    private readonly int? _regionOriginal, _campaniaOriginal;
 
     public EdicionExpedienteTests()
     {
@@ -31,6 +35,14 @@ public class EdicionExpedienteTests : IDisposable
         _procuradorOriginal = e.ProcuradorId;
         _patrocinanteOriginal = e.PatrocinanteId;
         _abogadoOriginal = e.AbogadoInteriorId;
+        _comparecioOriginal = e.Comparecio;
+        _fechaComparecioOriginal = e.FechaComparecio;
+        _abogadoContraparteOriginal = e.AbogadoContraparte;
+        _domicilioContraparteOriginal = e.DomicilioAbogadoContraparte;
+        _regionOriginal = e.RegionId;
+        _campaniaOriginal = e.CampaniaId;
+        _granContribuyenteOriginal = e.EsGranContribuyente;
+        _fiscaOriginal = e.EsFisca;
     }
 
     public void Dispose()
@@ -45,6 +57,14 @@ public class EdicionExpedienteTests : IDisposable
             e.ProcuradorId = _procuradorOriginal;
             e.PatrocinanteId = _patrocinanteOriginal;
             e.AbogadoInteriorId = _abogadoOriginal;
+            e.Comparecio = _comparecioOriginal;
+            e.FechaComparecio = _fechaComparecioOriginal;
+            e.AbogadoContraparte = _abogadoContraparteOriginal;
+            e.DomicilioAbogadoContraparte = _domicilioContraparteOriginal;
+            e.RegionId = _regionOriginal;
+            e.CampaniaId = _campaniaOriginal;
+            e.EsGranContribuyente = _granContribuyenteOriginal;
+            e.EsFisca = _fiscaOriginal;
             db.SaveChanges();
         }
         _sp.Dispose();
@@ -181,6 +201,141 @@ public class EdicionExpedienteTests : IDisposable
         var db = ambito.ServiceProvider.GetRequiredService<Procu360DbContext>();
         Assert.True(await db.AuditoriaEvento.AnyAsync(a => a.Entidad == "Expediente"
             && a.EntidadId == _expediente.ToString() && a.CambiosJson!.Contains("procuradorId")));
+    }
+
+    // ------------------------------------------------------ comparecencia y clasificación
+
+    [Fact]
+    public async Task La_comparecencia_se_guarda_con_su_fecha_y_el_abogado_de_la_contraparte()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEdicionExpediente>();
+        var vista = await servicio.ComparecenciaAsync(_expediente);
+        Assert.NotNull(vista);
+        var ayer = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().AddDays(-1);
+
+        var r = await servicio.GuardarComparecenciaAsync(_expediente, vista! with
+        {
+            Comparecio = true, FechaComparecio = ayer,
+            AbogadoContraparte = "PRUEBA-Dra. Giménez", DomicilioAbogadoContraparte = "Colón 100"
+        });
+
+        Assert.True(r.Exito, r.Error);
+        var actual = await servicio.ComparecenciaAsync(_expediente);
+        Assert.True(actual!.Comparecio);
+        Assert.Equal(ayer, actual.FechaComparecio);
+        Assert.Equal("PRUEBA-Dra. Giménez", actual.AbogadoContraparte);
+        var db = ambito.ServiceProvider.GetRequiredService<Procu360DbContext>();
+        Assert.True(await db.AuditoriaEvento.AnyAsync(a => a.Entidad == "Expediente"
+            && a.EntidadId == _expediente.ToString() && a.CambiosJson!.Contains("abogadoContraparte")));
+    }
+
+    [Fact]
+    public async Task Marcar_que_comparecio_sin_fecha_se_rechaza_y_una_fecha_futura_tambien()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEdicionExpediente>();
+        var vista = await servicio.ComparecenciaAsync(_expediente);
+
+        var sinFecha = await servicio.GuardarComparecenciaAsync(_expediente,
+            vista! with { Comparecio = true, FechaComparecio = null });
+        var futura = await servicio.GuardarComparecenciaAsync(_expediente, vista with
+        {
+            Comparecio = true,
+            FechaComparecio = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().AddDays(1)
+        });
+
+        Assert.False(sinFecha.Exito);
+        Assert.False(futura.Exito);
+    }
+
+    [Fact]
+    public async Task Desmarcar_la_comparecencia_limpia_la_fecha_y_los_datos_del_abogado()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEdicionExpediente>();
+        var vista = await servicio.ComparecenciaAsync(_expediente);
+        Assert.True((await servicio.GuardarComparecenciaAsync(_expediente, vista! with
+        {
+            Comparecio = true,
+            FechaComparecio = Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba(),
+            AbogadoContraparte = "PRUEBA-a borrar"
+        })).Exito);
+
+        var conDatos = await servicio.ComparecenciaAsync(_expediente);
+        var r = await servicio.GuardarComparecenciaAsync(_expediente, conDatos! with { Comparecio = false });
+
+        Assert.True(r.Exito, r.Error);
+        var actual = await servicio.ComparecenciaAsync(_expediente);
+        Assert.False(actual!.Comparecio);
+        Assert.Null(actual.FechaComparecio);
+        Assert.Null(actual.AbogadoContraparte);
+        Assert.Null(actual.DomicilioAbogadoContraparte);
+    }
+
+    [Fact]
+    public async Task La_clasificacion_guarda_region_campania_y_las_banderas()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEdicionExpediente>();
+        var regiones = await servicio.RegionesAsync();
+        var campanias = await servicio.CampaniasAsync();
+        Assert.NotEmpty(regiones);
+        Assert.NotEmpty(campanias);
+        var vista = await servicio.ClasificacionAsync(_expediente);
+
+        var r = await servicio.GuardarClasificacionAsync(_expediente, vista! with
+        {
+            RegionId = regiones[0].Id, CampaniaId = campanias[0].Id,
+            EsGranContribuyente = true, EsFisca = true
+        });
+
+        Assert.True(r.Exito, r.Error);
+        var actual = await servicio.ClasificacionAsync(_expediente);
+        Assert.Equal(regiones[0].Id, actual!.RegionId);
+        Assert.Equal(campanias[0].Id, actual.CampaniaId);
+        Assert.True(actual.EsGranContribuyente);
+        Assert.True(actual.EsFisca);
+    }
+
+    [Fact]
+    public async Task Una_region_o_una_campania_inexistente_se_rechazan()
+    {
+        using var ambito = Ambito(Laura);
+        var servicio = ambito.ServiceProvider.GetRequiredService<ServicioEdicionExpediente>();
+        var vista = await servicio.ClasificacionAsync(_expediente);
+
+        var region = await servicio.GuardarClasificacionAsync(_expediente, vista! with { RegionId = 999999 });
+        var campania = await servicio.GuardarClasificacionAsync(_expediente, vista with { CampaniaId = 999999 });
+
+        Assert.False(region.Exito);
+        Assert.False(campania.Exito);
+    }
+
+    [Fact]
+    public async Task La_comparecencia_y_la_clasificacion_no_se_ven_ni_se_editan_fuera_del_alcance()
+    {
+        int diego;
+        using (var a = _sp.CreateScope())
+            diego = await a.ServiceProvider.GetRequiredService<Procu360DbContext>().Usuario
+                .Where(u => u.EmailNormalizado == Diego).Select(u => u.Id).SingleAsync();
+
+        List<long> lauraVe, diegoVe;
+        using (var l = Ambito(Laura))
+            lauraVe = await (await l.ServiceProvider.GetRequiredService<Procu360.Infraestructura.Expedientes.AlcanceExpedientes>().IdsAsync()).ToListAsync();
+        using (var d = Ambito(diego))
+            diegoVe = await (await d.ServiceProvider.GetRequiredService<Procu360.Infraestructura.Expedientes.AlcanceExpedientes>().IdsAsync()).ToListAsync();
+        var fuera = lauraVe.Except(diegoVe).First();
+
+        using var ambitoDiego = Ambito(diego);
+        var servicio = ambitoDiego.ServiceProvider.GetRequiredService<ServicioEdicionExpediente>();
+
+        Assert.Null(await servicio.ComparecenciaAsync(fuera));
+        Assert.Null(await servicio.ClasificacionAsync(fuera));
+        Assert.False((await servicio.GuardarComparecenciaAsync(fuera,
+            new DatosComparecencia(false, null, null, null, []))).Exito);
+        Assert.False((await servicio.GuardarClasificacionAsync(fuera,
+            new DatosClasificacion(null, null, false, false, []))).Exito);
     }
 
     [Fact]

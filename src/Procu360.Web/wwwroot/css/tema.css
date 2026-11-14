@@ -563,13 +563,26 @@ h1, .h1, .h3:is(h1) {
 .cabecera-seccion {
     display: flex;
     align-items: center;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
     margin-bottom: 16px;
+}
+
+/* El último control (Editar, un filtro, un enlace) se va a la derecha sin desbordar la tarjeta. */
+.cabecera-seccion > .btn:last-child,
+.cabecera-seccion > a:last-child,
+.cabecera-seccion > input:last-child,
+.cabecera-seccion > .mini-segmentado:last-child {
+    margin-left: auto;
+    flex: 0 0 auto;
 }
 
 .cabecera-seccion h2 {
     margin: 0;
-    flex: 1;
+    /* Cede espacio antes que los controles, en vez de empujarlos fuera de la tarjeta. */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 17px;
     font-weight: 700;
     letter-spacing: -.01em;
@@ -764,6 +777,130 @@ h1, .h1, .h3:is(h1) {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+/* Datos que identifican al expediente: cuenta, comitente, demandado y concepto. */
+.meta-encabezado {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px 24px;
+    margin: 14px 0 12px;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--p-borde);
+}
+
+.meta-encabezado .dato {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.meta-encabezado .rotulo {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--p-texto-tenue);
+}
+
+.meta-encabezado .valor {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--p-tinta);
+    overflow-wrap: anywhere;
+}
+
+/* Aviso de que el capital dejó de seguir a la suma de períodos. */
+.aviso-descorrelacion {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 12px 14px;
+    border: 1px solid #FCD34D;
+    border-left: 4px solid #F59E0B;
+    border-radius: 10px;
+    background: #FFFBEB;
+    font-size: 13px;
+    color: #78350F;
+}
+
+.aviso-descorrelacion .texto {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.aviso-descorrelacion .texto span {
+    display: block;
+    margin-top: 2px;
+    color: #92400E;
+}
+
+/* Dentro de la tarjeta oscura del título, el aviso se aclara para seguir legible. */
+.tarjeta.destacada .aviso-descorrelacion {
+    background: rgba(251, 191, 36, .14);
+    border-color: rgba(251, 191, 36, .45);
+    color: #FDE68A;
+}
+
+.tarjeta.destacada .aviso-descorrelacion .texto span { color: #FCD34D; }
+
+/* Subtítulo que agrupa casillas dentro de un panel de acción. */
+.rotulo-grupo {
+    margin: 18px 0 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--p-texto-tenue);
+}
+
+.panel-accion .rotulo-grupo:first-of-type { margin-top: 8px; }
+
+/* Cuadradito con el color de una instancia. */
+.muestra-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid rgba(15, 23, 42, .18);
+    flex: 0 0 auto;
+}
+
+/* Resultados de la búsqueda de personas, en el panel de acción. */
+.lista-resultados {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.lista-resultados li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--p-superficie);
+    border: 1px solid var(--p-borde);
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+.lista-resultados .principal-celda {
+    display: block;
+    font-weight: 600;
+    color: var(--p-tinta);
+}
+
+.lista-resultados .secundario {
+    display: block;
+    font-size: 12px;
+    color: var(--p-texto-tenue);
 }
 
 .volver {
@@ -1523,6 +1660,72 @@ tr.vencida > td {
     to { opacity: 1; transform: none; }
 }
 
+/* ---------- Botón flotante para ir al final ---------- */
+
+.ir-al-final {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1030;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--p-azul);
+    color: #fff;
+    box-shadow: 0 10px 26px -8px rgba(29, 78, 216, .65);
+    cursor: pointer;
+    transition: transform .2s var(--p-curva), background .2s ease, box-shadow .2s ease;
+    /* Llama la atención mientras haya contenido más abajo. */
+    animation: p-latido 1.8s ease-in-out infinite;
+}
+
+.ir-al-final:hover {
+    transform: translateY(-2px);
+    background: #1E40AF;
+}
+
+.ir-al-final:focus-visible {
+    outline: 3px solid #93C5FD;
+    outline-offset: 2px;
+}
+
+/* Al llegar al final, el botón deja de parpadear, se apaga y apunta hacia arriba. */
+.ir-al-final.arriba {
+    background: var(--p-superficie);
+    color: var(--p-texto-2);
+    border: 1px solid var(--p-borde);
+    box-shadow: var(--p-sombra);
+    animation: none;
+}
+
+.ir-al-final.arriba svg {
+    transform: rotate(180deg);
+}
+
+.ir-al-final.arriba:hover {
+    background: var(--p-superficie-suave);
+    color: var(--p-tinta);
+}
+
+@keyframes p-latido {
+    0%, 100% { box-shadow: 0 10px 26px -8px rgba(29, 78, 216, .65), 0 0 0 0 rgba(37, 99, 235, .55); }
+    70%      { box-shadow: 0 10px 26px -8px rgba(29, 78, 216, .65), 0 0 0 12px rgba(37, 99, 235, 0); }
+}
+
+@media (max-width: 575px) {
+    .ir-al-final {
+        right: 16px;
+        bottom: 16px;
+        width: 44px;
+        height: 44px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -1530,5 +1733,15 @@ tr.vencida > td {
         animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
+    }
+
+    /* Sin parpadeo, pero el botón se sigue viendo y funcionando. */
+    .ir-al-final {
+        animation: none !important;
+    }
+
+    .ir-al-final,
+    .ir-al-final:hover {
+        transform: none;
     }
 }

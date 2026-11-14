@@ -1,0 +1,116 @@
+@* Clasificación del expediente: región, campaña de gestión y banderas del contribuyente. *@
+
+<section class="tarjeta" aria-labelledby="titulo-clasificacion">
+    <div class="cabecera-seccion">
+        <span class="icono-tono tono-ambar"><Icono Nombre="filtro" Tamano="18" Grosor="2" /></span>
+        <h2 id="titulo-clasificacion">Clasificación</h2>
+        @if (Puede && !_editando)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Empezar">Editar</button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2" role="alert">@_error</div>
+    }
+
+    @if (!_editando)
+    {
+        <dl class="datos">
+            <dt>Región</dt><dd>@(Nombre(Regiones, Datos.RegionId) ?? "—")</dd>
+            <dt>Campaña</dt><dd>@(Nombre(Campanias, Datos.CampaniaId) ?? "—")</dd>
+        </dl>
+        <div class="mt-2">
+            @if (Datos.EsGranContribuyente)
+            {
+                <span class="pastilla ambar me-1">Gran contribuyente</span>
+            }
+            @if (Datos.EsFisca)
+            {
+                <span class="pastilla cian me-1">Fiscalizado</span>
+            }
+            @if (!Datos.EsGranContribuyente && !Datos.EsFisca)
+            {
+                <span class="text-muted">Sin marcas particulares.</span>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="row g-2">
+            <div class="col-12">
+                <label class="form-label small" for="region">Región</label>
+                <select id="region" class="form-select form-select-sm" @bind="_regionId">
+                    <option value="0">Sin región</option>
+                    @foreach (var r in Regiones)
+                    {
+                        <option value="@r.Id">@r.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label small" for="campania">Campaña</label>
+                <select id="campania" class="form-select form-select-sm" @bind="_campaniaId">
+                    <option value="0">Sin campaña</option>
+                    @foreach (var c in Campanias)
+                    {
+                        <option value="@c.Id">@c.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-12 mt-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="granContribuyente" @bind="_granContribuyente" />
+                    <label class="form-check-label small" for="granContribuyente">Es gran contribuyente</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="fisca" @bind="_fisca" />
+                    <label class="form-check-label small" for="fisca">Está fiscalizado</label>
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-primary" @onclick="GuardarAsync">Guardar</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Procu360.Infraestructura.Expedientes.DatosClasificacion Datos { get; set; } = null!;
+    [Parameter] public bool Puede { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> Regiones { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> Campanias { get; set; } = [];
+    /// <summary>Guarda la sección. Devuelve el error a mostrar, o null si se guardó.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosClasificacion, Task<string?>> Guardar { get; set; } = null!;
+
+    private bool _editando;
+    private string? _error;
+    private int _regionId, _campaniaId;
+    private bool _granContribuyente, _fisca;
+
+    private static string? Nombre(IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> opciones, int? id) =>
+        opciones.FirstOrDefault(o => o.Id == id)?.Nombre;
+
+    private void Empezar()
+    {
+        _regionId = Datos.RegionId ?? 0;
+        _campaniaId = Datos.CampaniaId ?? 0;
+        _granContribuyente = Datos.EsGranContribuyente;
+        _fisca = Datos.EsFisca;
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cancelar() { _editando = false; _error = null; }
+
+    private async Task GuardarAsync()
+    {
+        var nuevo = new Procu360.Infraestructura.Expedientes.DatosClasificacion(
+            _regionId == 0 ? null : _regionId, _campaniaId == 0 ? null : _campaniaId,
+            _granContribuyente, _fisca, Datos.Version);
+        _error = await Guardar(nuevo);
+        if (_error is null) _editando = false;
+    }
+}

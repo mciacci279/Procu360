@@ -207,15 +207,19 @@ T("conf.Etapa", [
     "EsMonitorio bit NN DEF:0", "EsEjecucion bit NN DEF:0", "EsDiligencia bit NN DEF:0",
     "EtapaAnteriorId int", "EtapaSiguienteId int", "PasaSiguienteAutomatica bit NN DEF:0",
     "GeneraTarea bit NN DEF:0", "TareaParaUsuarios tinyint NN DEF:0", "HitoSistema tinyint",
-    "Activa bit NN DEF:1"],
+    "InstanciaId int", "Activa bit NN DEF:1"],
   legado=True, identidad="int",
-  fks=[("EtapaAnteriorId", "conf.Etapa"), ("EtapaSiguienteId", "conf.Etapa")],
+  fks=[("EtapaAnteriorId", "conf.Etapa"), ("EtapaSiguienteId", "conf.Etapa"),
+       ("InstanciaId", "conf.Instancia")],
   unicos=[("Flujo", "Nombre")],
-  indices=[(("EstudioId", "HitoSistema"), (), "HitoSistema IS NOT NULL")],
+  indices=[(("EstudioId", "HitoSistema"), (), "HitoSistema IS NOT NULL"),
+           (("EstudioId", "InstanciaId"), (), "InstanciaId IS NOT NULL")],
   checks=[("Flujo IN (1,2)", False), ("TareaParaUsuarios BETWEEN 0 AND 3", False),
-          ("HitoSistema BETWEEN 1 AND 4", False)],
+          ("HitoSistema BETWEEN 1 AND 4", False),
+          # El flujo cautelar (embargos, inhibiciones) no mueve el macroestado del expediente.
+          ("Flujo = 1 OR InstanciaId IS NULL", False)],
   origen="Etapa + Cautelar",
-  desc="Flujo 1 principal, 2 cautelar. HitoSistema 1 inicio de demanda, 2 demanda presentada (reemplaza el código fijo M100 y Configuracion.DemPresID), 3 sentencia, 4 ejecución. TareaParaUsuarios 0 ninguno, 1 responsable, 2 usuarios seleccionados, 3 todos.")
+  desc="Flujo 1 principal, 2 cautelar. HitoSistema 1 inicio de demanda, 2 demanda presentada (reemplaza el código fijo M100 y Configuracion.DemPresID), 3 sentencia, 4 ejecución. TareaParaUsuarios 0 ninguno, 1 responsable, 2 usuarios seleccionados, 3 todos. InstanciaId: la instancia a la que pasa el expediente al registrar esta etapa; solo para el flujo principal.")
 T("conf.EtapaUsuarioNotificado", ["EtapaId int NN", "UsuarioId int NN"],
   pk=("EstudioId", "EtapaId", "UsuarioId"), base=False,
   fks=[("EtapaId", "conf.Etapa"), ("UsuarioId", "seg.Usuario")], origen="EtapaAgendaUsuario")

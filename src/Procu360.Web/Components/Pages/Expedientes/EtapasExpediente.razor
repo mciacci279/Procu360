@@ -74,6 +74,12 @@
 @code {
     [Parameter, EditorRequired] public long ExpedienteId { get; set; }
 
+    /// <summary>
+    /// Avisa al padre que cambió el estado del expediente: registrar una etapa mueve la etapa actual y,
+    /// en el flujo principal, también la instancia, y eso se ve en el encabezado de la ficha.
+    /// </summary>
+    [Parameter] public EventCallback Cambiado { get; set; }
+
     private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
     private bool _puedeEditar;
     private bool _exito;
@@ -98,6 +104,7 @@
         _mensaje = "Etapa registrada.";
         _exito = true;
         await CargarAsync();
+        await Cambiado.InvokeAsync();
     }
 
     private async Task CambiarAsync(long etapaExpedienteId, byte nuevoEstado)
@@ -106,6 +113,7 @@
         _exito = r.Exito;
         _mensaje = r.Exito ? "Estado de la etapa actualizado." : r.Error;
         await CargarAsync();
+        if (r.Exito) await Cambiado.InvokeAsync();
     }
 
     private static string ClaseEstado(Procu360.Infraestructura.Etapas.FilaEtapa e) =>

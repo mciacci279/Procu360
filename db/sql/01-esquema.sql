@@ -462,6 +462,7 @@ CREATE TABLE conf.Etapa (
     GeneraTarea bit NOT NULL CONSTRAINT DF_conf_Etapa_GeneraTarea DEFAULT (0),
     TareaParaUsuarios tinyint NOT NULL CONSTRAINT DF_conf_Etapa_TareaParaUsuarios DEFAULT (0),
     HitoSistema tinyint NULL,
+    InstanciaId int NULL,
     Activa bit NOT NULL CONSTRAINT DF_conf_Etapa_Activa DEFAULT (1),
     LegadoId uniqueidentifier NULL,
     CreadoUtc datetime2(3) NOT NULL CONSTRAINT DF_conf_Etapa_CreadoUtc DEFAULT (SYSUTCDATETIME()),
@@ -474,10 +475,11 @@ CREATE TABLE conf.Etapa (
     CONSTRAINT UQ_conf_Etapa_EstudioId_Flujo_Nombre UNIQUE (EstudioId, Flujo, Nombre),
     CONSTRAINT CK_conf_Etapa_1 CHECK (Flujo IN (1,2)),
     CONSTRAINT CK_conf_Etapa_2 CHECK (TareaParaUsuarios BETWEEN 0 AND 3),
-    CONSTRAINT CK_conf_Etapa_3 CHECK (HitoSistema BETWEEN 1 AND 4)
+    CONSTRAINT CK_conf_Etapa_3 CHECK (HitoSistema BETWEEN 1 AND 4),
+    CONSTRAINT CK_conf_Etapa_4 CHECK (Flujo = 1 OR InstanciaId IS NULL)
 );
 GO
-EXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'Flujo 1 principal, 2 cautelar. HitoSistema 1 inicio de demanda, 2 demanda presentada (reemplaza el código fijo M100 y Configuracion.DemPresID), 3 sentencia, 4 ejecución. TareaParaUsuarios 0 ninguno, 1 responsable, 2 usuarios seleccionados, 3 todos. Origen Monitorio: Etapa + Cautelar.', @level0type = N'SCHEMA', @level0name = N'conf', @level1type = N'TABLE', @level1name = N'Etapa';
+EXEC sys.sp_addextendedproperty @name = N'MS_Description', @value = N'Flujo 1 principal, 2 cautelar. HitoSistema 1 inicio de demanda, 2 demanda presentada (reemplaza el código fijo M100 y Configuracion.DemPresID), 3 sentencia, 4 ejecución. TareaParaUsuarios 0 ninguno, 1 responsable, 2 usuarios seleccionados, 3 todos. InstanciaId: la instancia a la que pasa el expediente al registrar esta etapa; solo para el flujo principal. Origen Monitorio: Etapa + Cautelar.', @level0type = N'SCHEMA', @level0name = N'conf', @level1type = N'TABLE', @level1name = N'Etapa';
 GO
 CREATE TABLE conf.EtapaUsuarioNotificado (
     EstudioId int NOT NULL,
@@ -1552,6 +1554,7 @@ ALTER TABLE conf.Instancia ADD CONSTRAINT FK_conf_Instancia_Estudio FOREIGN KEY 
 ALTER TABLE conf.Etapa ADD CONSTRAINT FK_conf_Etapa_Estudio FOREIGN KEY (EstudioId) REFERENCES seg.Estudio (Id);
 ALTER TABLE conf.Etapa ADD CONSTRAINT FK_conf_Etapa_EtapaAnteriorId FOREIGN KEY (EstudioId, EtapaAnteriorId) REFERENCES conf.Etapa (EstudioId, Id);
 ALTER TABLE conf.Etapa ADD CONSTRAINT FK_conf_Etapa_EtapaSiguienteId FOREIGN KEY (EstudioId, EtapaSiguienteId) REFERENCES conf.Etapa (EstudioId, Id);
+ALTER TABLE conf.Etapa ADD CONSTRAINT FK_conf_Etapa_InstanciaId FOREIGN KEY (EstudioId, InstanciaId) REFERENCES conf.Instancia (EstudioId, Id);
 ALTER TABLE conf.EtapaUsuarioNotificado ADD CONSTRAINT FK_conf_EtapaUsuarioNotificado_Estudio FOREIGN KEY (EstudioId) REFERENCES seg.Estudio (Id);
 ALTER TABLE conf.EtapaUsuarioNotificado ADD CONSTRAINT FK_conf_EtapaUsuarioNotificado_EtapaId FOREIGN KEY (EstudioId, EtapaId) REFERENCES conf.Etapa (EstudioId, Id);
 ALTER TABLE conf.EtapaUsuarioNotificado ADD CONSTRAINT FK_conf_EtapaUsuarioNotificado_UsuarioId FOREIGN KEY (UsuarioId) REFERENCES seg.Usuario (Id);
@@ -1716,6 +1719,7 @@ CREATE NONCLUSTERED INDEX IX_conf_Juzgado_LocalidadId ON conf.Juzgado (Localidad
 CREATE UNIQUE NONCLUSTERED INDEX UX_conf_Juzgado_LegadoId ON conf.Juzgado (EstudioId, LegadoId) WHERE LegadoId IS NOT NULL;
 CREATE UNIQUE NONCLUSTERED INDEX UX_conf_Instancia_LegadoId ON conf.Instancia (EstudioId, LegadoId) WHERE LegadoId IS NOT NULL;
 CREATE NONCLUSTERED INDEX IX_conf_Etapa_EstudioId_HitoSistema ON conf.Etapa (EstudioId, HitoSistema) WHERE HitoSistema IS NOT NULL;
+CREATE NONCLUSTERED INDEX IX_conf_Etapa_EstudioId_InstanciaId ON conf.Etapa (EstudioId, InstanciaId) WHERE InstanciaId IS NOT NULL;
 CREATE NONCLUSTERED INDEX IX_conf_Etapa_EstudioId_EtapaAnteriorId ON conf.Etapa (EstudioId, EtapaAnteriorId);
 CREATE NONCLUSTERED INDEX IX_conf_Etapa_EstudioId_EtapaSiguienteId ON conf.Etapa (EstudioId, EtapaSiguienteId);
 CREATE UNIQUE NONCLUSTERED INDEX UX_conf_Etapa_LegadoId ON conf.Etapa (EstudioId, LegadoId) WHERE LegadoId IS NOT NULL;

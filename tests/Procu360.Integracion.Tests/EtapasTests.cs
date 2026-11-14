@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Procu360.Infraestructura.Etapas;
 using Procu360.Infraestructura.Expedientes;
@@ -22,7 +22,10 @@ public class EtapasTests : IDisposable
     private readonly ServiceProvider _sp = PruebasIdentidad.CrearServicios();
     private long? _expediente;
     private int? _etapaActualOriginal;
+    private int? _cautelarActualOriginal;
+    private int? _instanciaActualOriginal;
     private DateOnly? _ultimoMovimientoOriginal;
+    private DateOnly? _fechaInstanciaOriginal;
 
     public EtapasTests()
     {
@@ -55,7 +58,13 @@ public class EtapasTests : IDisposable
         {
             var e = db.Expediente.Single(x => x.Id == id);
             e.EtapaActualId = _etapaActualOriginal;
+            e.CautelarActualId = _cautelarActualOriginal;
+            e.InstanciaActualId = _instanciaActualOriginal;
             e.FechaUltimoMovimiento = _ultimoMovimientoOriginal;
+            e.FechaInstanciaActual = _fechaInstanciaOriginal;
+            // El historial de instancia que escribieron las pruebas de hoy.
+            db.InstanciaExpediente.Where(i => i.ExpedienteId == id && i.Fecha == ServicioMiDia.HoyEnCordoba())
+                .ExecuteDelete();
             // Las etapas que la prueba cerró vuelven a alta.
             db.EtapaExpediente.Where(x => x.ExpedienteId == id && x.Estado == 2 && x.FechaFin == ServicioMiDia.HoyEnCordoba())
                 .ExecuteUpdate(s => s.SetProperty(x => x.Estado, (byte)1).SetProperty(x => x.FechaFin, (DateOnly?)null));
@@ -78,7 +87,10 @@ public class EtapasTests : IDisposable
         var e = await db.Expediente.SingleAsync(x => x.NroOrden == Nro);
         _expediente = e.Id;
         _etapaActualOriginal = e.EtapaActualId;
+        _cautelarActualOriginal = e.CautelarActualId;
+        _instanciaActualOriginal = e.InstanciaActualId;
         _ultimoMovimientoOriginal = e.FechaUltimoMovimiento;
+        _fechaInstanciaOriginal = e.FechaInstanciaActual;
         return e.Id;
     }
 
@@ -221,6 +233,74 @@ public class EtapasTests : IDisposable
         var visibles = await (await ambitoDiego.ServiceProvider.GetRequiredService<AlcanceExpedientes>().IdsAsync()).ToListAsync();
         Assert.DoesNotContain(paginaDiego.Filas, f => f.ExpedienteId == expediente && !visibles.Contains(expediente));
         Assert.All(paginaDiego.Filas, f => Assert.Contains(f.ExpedienteId, visibles));
+    }
+
+    [Fact]
+    public async Task Registrar_una_etapa_principal_mueve_la_instancia_del_expediente_y_deja_historial()
+    {
+        var id = await ExpedienteAsync();
+        int etapaId;
+        int? instanciaDestino;
+        using (var ambito = Ambito(Laura))
+        {
+            var db = ambito.ServiceProvider.GetRequiredService<Procu360DbContext>();
+            var actual = await db.Expediente.Where(e => e.Id == id).Select(e => e.InstanciaActualId).SingleAsync();
+            // Una etapa principal cuya instancia sea distinta de la que tiene hoy el expediente.
+            var etapa = await db.Etapa
+                .Where(e => e.Flujo == ServicioEtapas.FlujoPrincipal && e.Activa && e.InstanciaId != null
+                            && e.InstanciaId != actual)
+                .OrderBy(e => e.Orden).FirstAsync();
+            etapaId = etapa.Id;
+            instanciaDestino = etapa.InstanciaId;
+        }
+        var hoy = ServicioMiDia.HoyEnCordoba();
+
+        using (var ambito = Ambito(Laura))
+        {
+            var r = await ambito.ServiceProvider.GetRequiredService<ServicioEtapas>()
+                .RegistrarAsync(id, etapaId, hoy, "PRUEBA-instancia", null);
+            Assert.True(r.Exito, r.Error);
+        }
+
+        using (var ambito = Ambito(Laura))
+        {
+            var db = ambito.ServiceProvider.GetRequiredService<Procu360DbContext>();
+            var e = await db.Expediente.SingleAsync(x => x.Id == id);
+            Assert.Equal(instanciaDestino, e.InstanciaActualId);
+            Assert.Equal(hoy, e.FechaInstanciaActual);
+            Assert.True(await db.InstanciaExpediente.AnyAsync(i => i.ExpedienteId == id
+                && i.InstanciaId == instanciaDestino && i.Fecha == hoy));
+        }
+    }
+
+    [Fact]
+    public async Task Registrar_una_cautelar_no_cambia_la_instancia()
+    {
+        var id = await ExpedienteAsync();
+        int cautelarId;
+        int? instanciaAntes;
+        using (var ambito = Ambito(Laura))
+        {
+            var db = ambito.ServiceProvider.GetRequiredService<Procu360DbContext>();
+            instanciaAntes = await db.Expediente.Where(e => e.Id == id).Select(e => e.InstanciaActualId).SingleAsync();
+            cautelarId = await db.Etapa.Where(e => e.Flujo == ServicioEtapas.FlujoCautelar && e.Activa)
+                .OrderBy(e => e.Orden).Select(e => e.Id).FirstAsync();
+        }
+
+        using (var ambito = Ambito(Laura))
+        {
+            var r = await ambito.ServiceProvider.GetRequiredService<ServicioEtapas>()
+                .RegistrarAsync(id, cautelarId, ServicioMiDia.HoyEnCordoba(), "PRUEBA-cautelar", null);
+            Assert.True(r.Exito, r.Error);
+        }
+
+        using (var ambito = Ambito(Laura))
+        {
+            var e = await ambito.ServiceProvider.GetRequiredService<Procu360DbContext>()
+                .Expediente.SingleAsync(x => x.Id == id);
+            Assert.Equal(instanciaAntes, e.InstanciaActualId);
+            Assert.Equal(cautelarId, e.CautelarActualId);
+        }
     }
 
     [Fact]

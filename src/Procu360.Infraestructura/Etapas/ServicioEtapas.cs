@@ -84,6 +84,25 @@ public sealed class ServicioEtapas(
         if (expediente.FechaUltimoMovimiento is null || inicio > expediente.FechaUltimoMovimiento)
             expediente.FechaUltimoMovimiento = inicio;
 
+        // La instancia la define la etapa del flujo principal: las cautelares no mueven el macroestado.
+        if (etapa.Flujo == FlujoPrincipal && etapa.InstanciaId is int instancia
+            && expediente.InstanciaActualId != instancia)
+        {
+            var instanciaAnterior = expediente.InstanciaActualId;
+            expediente.InstanciaActualId = instancia;
+            expediente.FechaInstanciaActual = inicio;
+            db.InstanciaExpediente.Add(new InstanciaExpediente
+            {
+                EstudioId = contexto.EstudioId!.Value,
+                ExpedienteId = expedienteId,
+                InstanciaId = instancia,
+                Fecha = inicio,
+                CreadoUtc = DateTime.UtcNow,
+                CreadoPor = contexto.UsuarioId
+            });
+            Auditar(2, nueva.Id, new { instancia = new { antes = instanciaAnterior, despues = instancia } });
+        }
+
         if (etapa.GeneraTarea)
         {
             db.Tarea.Add(new Tarea

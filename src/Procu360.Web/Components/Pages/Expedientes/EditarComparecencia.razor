@@ -1,0 +1,110 @@
+@* Comparecencia del demandado y datos de su abogado. Editable en línea. *@
+
+<section class="tarjeta" aria-labelledby="titulo-comparecencia">
+    <div class="cabecera-seccion">
+        <span class="icono-tono tono-celeste"><Icono Nombre="balanza" Tamano="18" Grosor="2" /></span>
+        <h2 id="titulo-comparecencia">Comparecencia</h2>
+        @if (Datos.Comparecio)
+        {
+            <span class="pastilla verde">Compareció</span>
+        }
+        else
+        {
+            <span class="pastilla gris">Sin comparecer</span>
+        }
+        @if (Puede && !_editando)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Empezar">Editar</button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2" role="alert">@_error</div>
+    }
+
+    @if (!_editando)
+    {
+        @if (!Datos.Comparecio)
+        {
+            <p class="text-muted mb-0">El demandado todavía no compareció en el juicio.</p>
+        }
+        else
+        {
+            <dl class="datos">
+                <dt>Fecha</dt><dd>@(Datos.FechaComparecio?.ToString("dd/MM/yyyy") ?? "—")</dd>
+                <dt>Abogado de la contraparte</dt><dd>@(Datos.AbogadoContraparte ?? "—")</dd>
+                <dt>Domicilio del abogado</dt><dd>@(Datos.DomicilioAbogadoContraparte ?? "—")</dd>
+            </dl>
+        }
+    }
+    else
+    {
+        <div class="row g-2">
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="comparecio" @bind="_comparecio" />
+                    <label class="form-check-label" for="comparecio">El demandado compareció</label>
+                </div>
+            </div>
+            @if (_comparecio)
+            {
+                <div class="col-md-6">
+                    <label class="form-label small" for="fechaComparecio">Fecha de comparecencia</label>
+                    <input id="fechaComparecio" class="form-control form-control-sm" type="date" @bind="_fecha" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label small" for="abogado">Abogado de la contraparte</label>
+                    <input id="abogado" class="form-control form-control-sm" maxlength="250" @bind="_abogado" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label small" for="domicilioAbogado">Domicilio del abogado</label>
+                    <input id="domicilioAbogado" class="form-control form-control-sm" maxlength="250" @bind="_domicilio" />
+                </div>
+            }
+            else
+            {
+                <div class="col-12">
+                    <p class="form-text mt-0 mb-0">Al guardar sin comparecencia se borran la fecha y los datos del abogado.</p>
+                </div>
+            }
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-primary" @onclick="GuardarAsync">Guardar</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Procu360.Infraestructura.Expedientes.DatosComparecencia Datos { get; set; } = null!;
+    [Parameter] public bool Puede { get; set; }
+    /// <summary>Guarda la sección. Devuelve el error a mostrar, o null si se guardó.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosComparecencia, Task<string?>> Guardar { get; set; } = null!;
+
+    private bool _editando;
+    private string? _error;
+    private bool _comparecio;
+    private DateOnly? _fecha;
+    private string? _abogado, _domicilio;
+
+    private void Empezar()
+    {
+        _comparecio = Datos.Comparecio;
+        _fecha = Datos.FechaComparecio;
+        _abogado = Datos.AbogadoContraparte;
+        _domicilio = Datos.DomicilioAbogadoContraparte;
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cancelar() { _editando = false; _error = null; }
+
+    private async Task GuardarAsync()
+    {
+        var nuevo = new Procu360.Infraestructura.Expedientes.DatosComparecencia(
+            _comparecio, _fecha, _abogado, _domicilio, Datos.Version);
+        _error = await Guardar(nuevo);
+        if (_error is null) _editando = false;
+    }
+}

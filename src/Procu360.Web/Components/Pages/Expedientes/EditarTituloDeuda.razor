@@ -1,0 +1,195 @@
+@* Título de deuda. El capital sigue a la suma de períodos salvo que se edite a mano; en ese caso avisa. *@
+
+<section class="tarjeta destacada" aria-labelledby="titulo-titulo">
+    <div class="cabecera-seccion">
+        <span class="icono-tono"><Icono Nombre="moneda" Tamano="18" Grosor="2" /></span>
+        <h2 id="titulo-titulo">Título de deuda</h2>
+        @if (Puede && !_editando)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Empezar">Editar</button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2" role="alert">@_error</div>
+    }
+
+    @if (!_editando)
+    {
+        <div class="cifra-rotulo">Monto del título</div>
+        <div class="cifra mb-3">@(Datos.MontoTitulo is decimal t ? Importe(t) : "—")</div>
+        <dl class="datos">
+            <dt>Capital</dt><dd>@(Datos.MontoCapital is decimal k ? Importe(k) : "—")</dd>
+            <dt>Suma de períodos</dt><dd>@Importe(Datos.SumaPeriodos)</dd>
+            <dt>Fecha del título</dt><dd>@(Datos.FechaTitulo?.ToString("dd/MM/yyyy") ?? "—")</dd>
+            <dt>Liquidación</dt><dd>@(Datos.NroLiquidacion ?? "—")</dd>
+        </dl>
+
+        @if (Datos.Descorrelacionado)
+        {
+            <div class="aviso-descorrelacion mt-3" role="status">
+                <div class="texto">
+                    <strong>El capital no coincide con los períodos.</strong>
+                    <span>
+                        Hay @Importe(Math.Abs(Datos.Diferencia)) @(Datos.Diferencia > 0 ? "de más" : "de menos")
+                        en el capital respecto de la suma de los períodos cargados.
+                        @if (Datos.CapitalManual)
+                        {
+                            <text>Se editó a mano, así que ya no se actualiza solo.</text>
+                        }
+                    </span>
+                </div>
+                @if (Puede)
+                {
+                    <button class="btn btn-sm btn-outline-primary text-nowrap" @onclick="SincronizarAsync">
+                        Igualar a los períodos
+                    </button>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label small" for="montoTitulo">Monto del título</label>
+                <input id="montoTitulo" class="form-control form-control-sm" @bind="_montoTitulo" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small" for="montoCapital">Capital</label>
+                <input id="montoCapital" class="form-control form-control-sm" @bind="_montoCapital" />
+                <div class="form-text">Suma de los períodos: @Importe(Datos.SumaPeriodos)</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small" for="fechaTitulo">Fecha del título</label>
+                <input id="fechaTitulo" class="form-control form-control-sm" type="date" @bind="_fechaTitulo" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small" for="nroLiquidacion">Nro. de liquidación</label>
+                <input id="nroLiquidacion" class="form-control form-control-sm" maxlength="50" @bind="_nroLiquidacion" />
+            </div>
+
+            @if (_confirmando is { } diferencia)
+            {
+                <div class="col-12">
+                    <div class="alert alert-warning py-2 mb-0" role="alert">
+                        <strong>El capital que cargaste no coincide con los períodos.</strong>
+                        <div class="small mt-1">
+                            Capital: @Importe(_capitalPendiente) · Períodos: @Importe(Datos.SumaPeriodos) ·
+                            Diferencia: @Importe(Math.Abs(diferencia)) @(diferencia > 0 ? "de más" : "de menos").
+                            Si guardás, el capital deja de actualizarse solo cuando cambien los períodos.
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-warning" @onclick="ConfirmarGuardadoAsync">Guardar igual</button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirmando = null">Revisar</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-primary" @onclick="GuardarAsync">Guardar</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
+
+    [Parameter, EditorRequired] public Procu360.Infraestructura.Expedientes.DatosTituloDeuda Datos { get; set; } = null!;
+    [Parameter] public bool Puede { get; set; }
+    /// <summary>Guarda la sección. Devuelve el error a mostrar, o null si se guardó.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosTituloDeuda, Task<string?>> Guardar { get; set; } = null!;
+    /// <summary>Iguala el capital a la suma de períodos. Devuelve el error, o null si salió bien.</summary>
+    [Parameter, EditorRequired] public Func<Task<string?>> Sincronizar { get; set; } = null!;
+
+    private bool _editando;
+    private string? _error;
+    private string _montoTitulo = string.Empty;
+    private string _montoCapital = string.Empty;
+    private DateOnly? _fechaTitulo;
+    private string? _nroLiquidacion;
+
+    /// <summary>Diferencia pendiente de confirmar al guardar un capital descorrelacionado.</summary>
+    private decimal? _confirmando;
+    private decimal _capitalPendiente;
+
+    private static string Importe(decimal valor) => valor.ToString("C2", Argentina);
+
+    private void Empezar()
+    {
+        _montoTitulo = Datos.MontoTitulo?.ToString("N2", Argentina) ?? string.Empty;
+        _montoCapital = Datos.MontoCapital?.ToString("N2", Argentina) ?? string.Empty;
+        _fechaTitulo = Datos.FechaTitulo;
+        _nroLiquidacion = Datos.NroLiquidacion;
+        _error = null;
+        _confirmando = null;
+        _editando = true;
+    }
+
+    private void Cancelar()
+    {
+        _editando = false;
+        _error = null;
+        _confirmando = null;
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (!TryImporte(_montoTitulo, out var titulo)) { _error = "El monto del título no es válido."; return; }
+        if (!TryImporte(_montoCapital, out var capital)) { _error = "El capital no es válido."; return; }
+        _error = null;
+
+        // Si el capital cambia y queda distinto de los períodos, se pide confirmación antes de guardar.
+        var capitalCambio = capital != Datos.MontoCapital;
+        var diferencia = (capital ?? 0m) - Datos.SumaPeriodos;
+        if (capitalCambio && Math.Abs(diferencia) >= 0.01m && _confirmando is null)
+        {
+            _capitalPendiente = capital ?? 0m;
+            _confirmando = diferencia;
+            return;
+        }
+
+        await EnviarAsync(titulo, capital);
+    }
+
+    private async Task ConfirmarGuardadoAsync()
+    {
+        TryImporte(_montoTitulo, out var titulo);
+        TryImporte(_montoCapital, out var capital);
+        await EnviarAsync(titulo, capital);
+    }
+
+    private async Task EnviarAsync(decimal? titulo, decimal? capital)
+    {
+        var nuevo = Datos with
+        {
+            MontoTitulo = titulo,
+            MontoCapital = capital,
+            FechaTitulo = _fechaTitulo,
+            NroLiquidacion = _nroLiquidacion
+        };
+        _error = await Guardar(nuevo);
+        _confirmando = null;
+        if (_error is null) _editando = false;
+    }
+
+    private async Task SincronizarAsync()
+    {
+        _error = await Sincronizar();
+    }
+
+    /// <summary>Vacío es null (sin dato). Acepta "1.234,56": punto de miles y coma decimal.</summary>
+    private static bool TryImporte(string? texto, out decimal? valor)
+    {
+        valor = null;
+        if (string.IsNullOrWhiteSpace(texto)) return true;
+        if (!decimal.TryParse(texto.Trim(), System.Globalization.NumberStyles.Number, Argentina, out var d))
+            return false;
+        valor = d;
+        return true;
+    }
+}

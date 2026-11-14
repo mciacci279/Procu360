@@ -11,7 +11,10 @@ public sealed record CriteriosBusqueda(
     bool SinMovimiento,
     bool IncluirDadosDeBaja,
     int Pagina = 1,
-    int TamanioPagina = 25);
+    int TamanioPagina = 25,
+    int? EtapaId = null,
+    /// <summary>Con la etapa elegida: false solo la etapa actual, true cualquiera que alguna vez la haya tenido.</summary>
+    bool EtapasHistoricas = false);
 
 public sealed record FilaExpediente(
     long Id,
@@ -48,6 +51,15 @@ public sealed class ServicioBusquedaExpedientes(Procu360DbContext db, AlcanceExp
 
         if (criterios.ComitenteId is int comitente) consulta = consulta.Where(e => e.ComitenteId == comitente);
         if (criterios.InstanciaId is int instancia) consulta = consulta.Where(e => e.InstanciaActualId == instancia);
+
+        if (criterios.EtapaId is int etapa)
+        {
+            consulta = criterios.EtapasHistoricas
+                // Alguna vez la tuvo: alcanza con que figure en su historial.
+                ? consulta.Where(e => db.EtapaExpediente.Any(x => x.ExpedienteId == e.Id && x.EtapaId == etapa))
+                // Es su etapa actual: puede ser la del flujo principal o la cautelar.
+                : consulta.Where(e => e.EtapaActualId == etapa || e.CautelarActualId == etapa);
+        }
 
         if (criterios.SinMovimiento)
         {
@@ -126,6 +138,19 @@ public sealed class ServicioBusquedaExpedientes(Procu360DbContext db, AlcanceExp
     public async Task<IReadOnlyList<OpcionCatalogo>> InstanciasAsync(CancellationToken ct = default) =>
         await db.Instancia.Where(i => i.Activa).OrderBy(i => i.Orden)
             .Select(i => new OpcionCatalogo(i.Id, i.Nombre)).ToListAsync(ct);
+
+    /// <summary>
+    /// Etapas para el filtro. Incluye las inactivas, porque un expediente puede tener en su historial
+    /// una etapa que después se dio de baja del catálogo. El flujo cautelar se distingue en el nombre.
+    /// </summary>
+    public async Task<IReadOnlyList<OpcionCatalogo>> EtapasAsync(CancellationToken ct = default)
+    {
+        var etapas = await db.Etapa.OrderBy(e => e.Flujo).ThenBy(e => e.Orden).ThenBy(e => e.Nombre)
+            .Select(e => new { e.Id, e.Nombre, e.Flujo, e.Activa }).ToListAsync(ct);
+
+        return etapas.Select(e => new OpcionCatalogo(e.Id,
+            (e.Flujo == 2 ? "Cautelar · " : "") + e.Nombre + (e.Activa ? "" : " (inactiva)"))).ToList();
+    }
 
     private async Task<int> DiasSinMovimientoAsync(CancellationToken ct)
     {

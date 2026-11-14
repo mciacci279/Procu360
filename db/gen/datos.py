@@ -285,7 +285,7 @@ def catalogos_estudio(E, var):
             Interrumpe=inter, CortaPerencion=corta, EsMonitorio=mon, EsEjecucion=eje, EsDiligencia=dil,
             EtapaAnteriorId=ids[i - 1] if i else None, EtapaSiguienteId=ids[i + 1] if i + 1 < len(ids) else None,
             PasaSiguienteAutomatica=cod in ("P01",), GeneraTarea=gen, TareaParaUsuarios=1 if gen else 0,
-            HitoSistema=hito, Activa=True, LegadoId=leg(), **base)
+            HitoSistema=hito, InstanciaId=c["inst"][inst], Activa=True, LegadoId=leg(), **base)
         c["etapa"][cod] = ids[i]
         c["etapa_info"][cod] = dict(dias=dias, hab=hab, inst=inst, nombre=n)
     cids = [nid("conf.Etapa") for _ in cautelares]
@@ -294,7 +294,7 @@ def catalogos_estudio(E, var):
             EtapaAnteriorId=cids[i - 1] if i and i < 2 else None, EtapaSiguienteId=cids[1] if i == 0 else None,
             Interrumpe=False, CortaPerencion=True, EsMonitorio=False, EsEjecucion=True, EsDiligencia=False,
             PasaSiguienteAutomatica=False, GeneraTarea=i == 0, TareaParaUsuarios=1 if i == 0 else 0,
-            HitoSistema=None, Activa=True, LegadoId=leg(), **base)
+            HitoSistema=None, InstanciaId=None, Activa=True, LegadoId=leg(), **base)
         c["etapa"][cod] = cids[i]
         c["etapa_info"][cod] = dict(dias=dias, hab=hab, inst=None, nombre=n)
     notif = [U["laura"], U["martin"]] if var == 1 else [U["valeria"]]

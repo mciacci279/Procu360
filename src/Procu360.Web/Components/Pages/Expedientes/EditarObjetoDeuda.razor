@@ -1,0 +1,95 @@
+@* Objeto de la deuda: la cuenta o resolución y la identificación del inmueble. Editable en línea. *@
+
+<section class="tarjeta" aria-labelledby="titulo-objeto">
+    <div class="cabecera-seccion">
+        <span class="icono-tono tono-celeste"><Icono Nombre="ubicacion" Tamano="18" Grosor="2" /></span>
+        <h2 id="titulo-objeto">Objeto de la deuda</h2>
+        @if (Puede && !_editando)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Empezar">Editar</button>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2" role="alert">@_error</div>
+    }
+
+    @if (!_editando)
+    {
+        <dl class="datos">
+            <dt>Cuenta / resolución</dt><dd>@(Datos.NroCuenta ?? "—")</dd>
+            <dt>Nomenclatura</dt><dd>@(Datos.Nomenclatura ?? "—")</dd>
+            <dt>Dominio</dt><dd>@(Datos.Dominio ?? "—")</dd>
+            <dt>Designación</dt><dd>@(Datos.Designacion ?? "—")</dd>
+            <dt>Matrícula RPI</dt><dd>@(Datos.MatriculaRpi ?? "—")</dd>
+            <dt>Domicilio del objeto</dt><dd>@(Datos.DomicilioObjeto ?? "—")</dd>
+        </dl>
+    }
+    else
+    {
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label small" for="nroCuenta">Cuenta / resolución</label>
+                <input id="nroCuenta" class="form-control form-control-sm" maxlength="50" @bind="_nroCuenta" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small" for="nomenclatura">Nomenclatura</label>
+                <input id="nomenclatura" class="form-control form-control-sm" maxlength="50" @bind="_nomenclatura" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small" for="dominio">Dominio</label>
+                <input id="dominio" class="form-control form-control-sm" maxlength="20" @bind="_dominio" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small" for="matricula">Matrícula RPI</label>
+                <input id="matricula" class="form-control form-control-sm" maxlength="50" @bind="_matricula" />
+            </div>
+            <div class="col-12">
+                <label class="form-label small" for="designacion">Designación</label>
+                <input id="designacion" class="form-control form-control-sm" maxlength="100" @bind="_designacion" />
+            </div>
+            <div class="col-12">
+                <label class="form-label small" for="domicilioObjeto">Domicilio del objeto</label>
+                <input id="domicilioObjeto" class="form-control form-control-sm" maxlength="250" @bind="_domicilioObjeto" />
+            </div>
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-primary" @onclick="GuardarAsync">Guardar</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Procu360.Infraestructura.Expedientes.DatosObjetoDeuda Datos { get; set; } = null!;
+    [Parameter] public bool Puede { get; set; }
+    /// <summary>Guarda la sección. Devuelve el error a mostrar, o null si se guardó.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosObjetoDeuda, Task<string?>> Guardar { get; set; } = null!;
+
+    private bool _editando;
+    private string? _error;
+    private string? _nroCuenta, _nomenclatura, _dominio, _designacion, _matricula, _domicilioObjeto;
+
+    private void Empezar()
+    {
+        _nroCuenta = Datos.NroCuenta;
+        _nomenclatura = Datos.Nomenclatura;
+        _dominio = Datos.Dominio;
+        _designacion = Datos.Designacion;
+        _matricula = Datos.MatriculaRpi;
+        _domicilioObjeto = Datos.DomicilioObjeto;
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cancelar() { _editando = false; _error = null; }
+
+    private async Task GuardarAsync()
+    {
+        var nuevo = new Procu360.Infraestructura.Expedientes.DatosObjetoDeuda(
+            _nroCuenta, _nomenclatura, _dominio, _designacion, _matricula, _domicilioObjeto, Datos.Version);
+        _error = await Guardar(nuevo);
+        if (_error is null) _editando = false;
+    }
+}

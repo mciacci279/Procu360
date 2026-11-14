@@ -1,0 +1,249 @@
+@* ABM de los períodos adeudados del expediente. Grilla a la izquierda, panel de acción a la derecha. *@
+
+<div class="columnas">
+    <div class="principal">
+        <section class="tarjeta" aria-labelledby="titulo-periodos">
+            <div class="cabecera-seccion">
+                <span class="icono-tono tono-ambar"><Icono Nombre="calendario" Tamano="18" Grosor="2" /></span>
+                <h2 id="titulo-periodos">Períodos adeudados</h2>
+                @if (_periodos.Count > 0)
+                {
+                    <span class="pastilla ambar">@_periodos.Count @(_periodos.Count == 1 ? "período" : "períodos")</span>
+                }
+            </div>
+
+            @if (_mensaje is not null)
+            {
+                <div class="alert @(_exito ? "alert-success" : "alert-danger") py-2" role="status">@_mensaje</div>
+            }
+
+            @if (_periodos.Count == 0)
+            {
+                <p class="text-muted mb-0">No hay períodos adeudados cargados.</p>
+            }
+            else
+            {
+                <div class="tabla-contenedor">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Año</th><th>Cuota</th><th>Concepto</th><th>Vencimiento</th>
+                                <th class="text-end">Tributo</th><th class="text-end">Recargo</th><th class="text-end">Total</th>
+                                @if (Puede)
+                                {
+                                    <th class="text-end">Acciones</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Pagina)
+                            {
+                                <tr>
+                                    <td class="nro">@p.Anio</td>
+                                    <td>@(p.Cuota ?? "—")</td>
+                                    <td>
+                                        @(p.Concepto ?? "—")
+                                        @if (p.Observaciones is not null)
+                                        {
+                                            <span class="secundario">@p.Observaciones</span>
+                                        }
+                                    </td>
+                                    <td class="numero">@(p.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                    <td class="text-end">@Importe(p.Tributo)</td>
+                                    <td class="text-end">@Importe(p.Recargo)</td>
+                                    <td class="text-end principal-celda">@Importe(p.Total)</td>
+                                    @if (Puede)
+                                    {
+                                        <td class="text-end text-nowrap">
+                                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => EditarPeriodo(p)">Editar</button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarAsync(p)">Eliminar</button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            @* El total suma TODOS los períodos, no solo los de la página. *@
+                            <tr>
+                                <td colspan="4" class="principal-celda">Total de @_periodos.Count @(_periodos.Count == 1 ? "período" : "períodos")</td>
+                                <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Tributo))</td>
+                                <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Recargo))</td>
+                                <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Total))</td>
+                                @if (Puede)
+                                {
+                                    <td></td>
+                                }
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <Paginador Total="_periodos.Count" Pagina="_pagina" Paginas="Paginas" Tamanio="_tamanio"
+                           IrAPagina="p => _pagina = p" CambiarTamanio="CambiarTamanio" />
+            }
+        </section>
+    </div>
+
+    @if (Puede)
+    {
+        <div class="lateral">
+            <section class="tarjeta panel-accion" aria-labelledby="titulo-nuevo-periodo">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-ambar">
+                        <Icono Nombre="@(_editando is null ? "mas" : "nota")" Tamano="18" Grosor="2.2" />
+                    </span>
+                    <h2 id="titulo-nuevo-periodo">@(_editando is null ? "Agregar período" : "Editar período")</h2>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small" for="anio">Año</label>
+                        <input id="anio" class="form-control form-control-sm" type="number" min="1950" max="2100" @bind="_anio" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small" for="cuota">Cuota</label>
+                        <input id="cuota" class="form-control form-control-sm" maxlength="50" @bind="_cuota" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="concepto">Concepto</label>
+                    <input id="concepto" class="form-control form-control-sm" maxlength="50" @bind="_concepto" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="vencimiento">Vencimiento</label>
+                    <input id="vencimiento" class="form-control form-control-sm" type="date" @bind="_vencimiento" />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small" for="tributo">Tributo</label>
+                        <input id="tributo" class="form-control form-control-sm" @bind="_tributo" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small" for="recargo">Recargo</label>
+                        <input id="recargo" class="form-control form-control-sm" @bind="_recargo" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="obsPeriodo">Observaciones</label>
+                    <textarea id="obsPeriodo" class="form-control form-control-sm" rows="2" maxlength="2500" @bind="_observaciones"></textarea>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary flex-grow-1" @onclick="GuardarAsync">
+                        @(_editando is null ? "Agregar período" : "Guardar cambios")
+                    </button>
+                    @if (_editando is not null)
+                    {
+                        <button class="btn btn-outline-secondary" @onclick="CancelarEdicion">Cancelar</button>
+                    }
+                </div>
+                <p class="form-text mb-0 mt-3">Los importes se escriben con coma para los centavos: 1.234,56</p>
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Argentina = new("es-AR");
+
+    [Parameter] public bool Puede { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.PeriodoEditable> Periodos { get; set; } = [];
+    /// <summary>Operaciones del ABM. Devuelven el error a mostrar, o null si salió bien.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosPeriodo, Task<string?>> Agregar { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<long, Procu360.Infraestructura.Expedientes.DatosPeriodo, byte[], Task<string?>> Editar { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<long, Task<string?>> Eliminar { get; set; } = null!;
+
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PeriodoEditable> _periodos = [];
+    private string? _mensaje;
+    private bool _exito;
+    private int _pagina = 1;
+    private int _tamanio = 25;
+
+    private Procu360.Infraestructura.Expedientes.PeriodoEditable? _editando;
+    private short _anio = (short)Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().Year;
+    private string? _cuota, _concepto, _observaciones;
+    private DateOnly? _vencimiento;
+    private string _tributo = "0,00";
+    private string _recargo = "0,00";
+
+    private int Paginas => Math.Max(1, (int)Math.Ceiling(_periodos.Count / (double)_tamanio));
+
+    private IEnumerable<Procu360.Infraestructura.Expedientes.PeriodoEditable> Pagina =>
+        _periodos.Skip((Math.Clamp(_pagina, 1, Paginas) - 1) * _tamanio).Take(_tamanio);
+
+    protected override void OnParametersSet() => _periodos = Periodos;
+
+    private void CambiarTamanio(int tamanio)
+    {
+        _tamanio = tamanio;
+        _pagina = 1;
+    }
+
+    private static string Importe(decimal valor) => valor.ToString("C2", Argentina);
+
+    private void EditarPeriodo(Procu360.Infraestructura.Expedientes.PeriodoEditable p)
+    {
+        _editando = p;
+        _anio = p.Anio;
+        _cuota = p.Cuota;
+        _concepto = p.Concepto;
+        _vencimiento = p.Vencimiento;
+        _tributo = p.Tributo.ToString("N2", Argentina);
+        _recargo = p.Recargo.ToString("N2", Argentina);
+        _observaciones = p.Observaciones;
+        _mensaje = null;
+    }
+
+    private void CancelarEdicion()
+    {
+        _editando = null;
+        LimpiarFormulario();
+        _mensaje = null;
+    }
+
+    private void LimpiarFormulario()
+    {
+        _anio = (short)Procu360.Infraestructura.MiDia.ServicioMiDia.HoyEnCordoba().Year;
+        _cuota = _concepto = _observaciones = null;
+        _vencimiento = null;
+        _tributo = "0,00";
+        _recargo = "0,00";
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (!TryImporte(_tributo, out var tributo)) { Informar("El tributo no es un importe válido.", ""); return; }
+        if (!TryImporte(_recargo, out var recargo)) { Informar("El recargo no es un importe válido.", ""); return; }
+
+        var datos = new Procu360.Infraestructura.Expedientes.DatosPeriodo(
+            _anio, _cuota, _concepto, _vencimiento, tributo, recargo, _observaciones);
+
+        if (_editando is { } p)
+        {
+            Informar(await Editar(p.Id, datos, p.Version), "Período actualizado.");
+            if (_exito) { _editando = null; LimpiarFormulario(); }
+        }
+        else
+        {
+            Informar(await Agregar(datos), "Período agregado.");
+            if (_exito) LimpiarFormulario();
+        }
+    }
+
+    private async Task EliminarAsync(Procu360.Infraestructura.Expedientes.PeriodoEditable p)
+    {
+        Informar(await Eliminar(p.Id), "Período eliminado.");
+        if (_exito && _editando?.Id == p.Id) { _editando = null; LimpiarFormulario(); }
+    }
+
+    /// <summary>Acepta "1.234,56" y "1234.56": el punto es separador de miles y la coma, decimal.</summary>
+    private static bool TryImporte(string? texto, out decimal valor)
+    {
+        valor = 0m;
+        if (string.IsNullOrWhiteSpace(texto)) return true;
+        return decimal.TryParse(texto.Trim(), System.Globalization.NumberStyles.Number, Argentina, out valor);
+    }
+
+    private void Informar(string? error, string exito)
+    {
+        _exito = error is null;
+        _mensaje = error ?? exito;
+    }
+}

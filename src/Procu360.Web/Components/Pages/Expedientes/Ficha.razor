@@ -3,6 +3,9 @@
 @attribute [Authorize(Policy = "expedientes.consultar")]
 @inject Procu360.Infraestructura.Expedientes.FichaExpedienteServicio Servicio
 @inject Procu360.Infraestructura.Expedientes.ServicioEdicionExpediente Edicion
+@inject Procu360.Infraestructura.Expedientes.ServicioPersonasExpediente PersonasServicio
+@inject Procu360.Infraestructura.Expedientes.ServicioPeriodosExpediente PeriodosServicio
+@inject Procu360.Infraestructura.Tareas.ServicioTareas TareasServicio
 @inject AuthenticationStateProvider AutenticacionProveedor
 @inject ContextoEstudio Contexto
 @inject ServicioPermisos Autorizacion
@@ -42,21 +45,70 @@ else if (_encabezado is not null)
                     <span class="pastilla roja">Dado de baja</span>
                 }
             </div>
-            <p class="caratula">@(_encabezado.Caratula ?? "Sin carátula")</p>
-            @if (_encabezado.Recaratulacion is not null)
+            @* Carátula: solo tiene sentido cuando el expediente ya está en el juzgado. *@
+            @if (_encabezado.Judicializado)
             {
-                <p class="small text-muted mb-1">Recaratulado: @_encabezado.Recaratulacion</p>
+                <p class="caratula">@(_encabezado.Caratula ?? "Sin carátula")</p>
+                @if (_encabezado.Recaratulacion is not null)
+                {
+                    <p class="small text-muted mb-1">Recaratulado: @_encabezado.Recaratulacion</p>
+                }
             }
-            <div class="meta">
-                @if (!string.IsNullOrEmpty(_encabezado.Juzgado))
-                {
-                    <span><Icono Nombre="balanza" Tamano="16" /> @_encabezado.Juzgado</span>
-                }
-                @if (!string.IsNullOrEmpty(_encabezado.Procurador))
-                {
-                    <span><Icono Nombre="usuarios" Tamano="16" /> @_encabezado.Procurador</span>
-                }
+
+            @* Lo que identifica al expediente, judicializado o no. *@
+            <div class="meta-encabezado">
+                <div class="dato">
+                    <span class="rotulo">Nro. cuenta</span>
+                    <span class="valor numero">@(_encabezado.NroCuenta ?? "—")</span>
+                </div>
+                <div class="dato">
+                    <span class="rotulo">Comitente</span>
+                    <span class="valor">@(_encabezado.Comitente ?? "—")</span>
+                </div>
+                <div class="dato">
+                    <span class="rotulo">Demandado</span>
+                    <span class="valor">
+                        @(string.IsNullOrWhiteSpace(_encabezado.Demandado) ? "—" : _encabezado.Demandado)
+                        @if (_encabezado.Codemandados > 0)
+                        {
+                            <span class="pastilla azul ms-1">+@_encabezado.Codemandados</span>
+                        }
+                    </span>
+                </div>
+                <div class="dato">
+                    <span class="rotulo">Concepto</span>
+                    <span class="valor">@(_encabezado.Concepto ?? "—")</span>
+                </div>
             </div>
+
+            @* Datos del juicio: solo si está judicializada. *@
+            @if (_encabezado.Judicializado)
+            {
+                <div class="meta">
+                    @if (!string.IsNullOrEmpty(_encabezado.Juzgado))
+                    {
+                        <span><Icono Nombre="balanza" Tamano="16" /> @_encabezado.Juzgado</span>
+                    }
+                    @if (!string.IsNullOrEmpty(_encabezado.Procurador))
+                    {
+                        <span><Icono Nombre="usuarios" Tamano="16" /> @_encabezado.Procurador</span>
+                    }
+                    @if (_encabezado.FechaSorteo is DateOnly fs)
+                    {
+                        <span><Icono Nombre="calendario" Tamano="16" /> Sorteo @fs.ToString("dd/MM/yyyy")@(_encabezado.Sorteo is not null ? $" · {_encabezado.Sorteo}" : "")</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="meta">
+                    <span class="text-muted">Sin judicializar</span>
+                    @if (!string.IsNullOrEmpty(_encabezado.Procurador))
+                    {
+                        <span><Icono Nombre="usuarios" Tamano="16" /> @_encabezado.Procurador</span>
+                    }
+                </div>
+            }
         </div>
         @if (_puedeEditar && !_encabezado.Anulado)
         {
@@ -84,88 +136,32 @@ else if (_encabezado is not null)
     @switch (Pestana)
     {
         case "personas":
-            <section class="tarjeta" aria-labelledby="titulo-personas">
-                <div class="cabecera-seccion">
-                    <span class="icono-tono tono-azul"><Icono Nombre="usuarios" Tamano="18" Grosor="2" /></span>
-                    <h2 id="titulo-personas">Personas del expediente</h2>
-                </div>
-                @if (_personas is null)
-                {
-                    <p class="text-muted mb-0">Cargando…</p>
-                }
-                else if (_personas.Count == 0)
-                {
-                    <p class="text-muted mb-0">No hay personas cargadas.</p>
-                }
-                else
-                {
-                    <div class="tabla-contenedor">
-                        <table class="table">
-                            <thead><tr><th>Persona</th><th>Rol</th><th>Documento</th><th>CUIT</th><th>Domicilio principal</th></tr></thead>
-                            <tbody>
-                                @foreach (var p in PaginaDe(_personas, _paginaPersonas))
-                                {
-                                    <tr>
-                                        <td class="principal-celda">@p.Nombre</td>
-                                        <td><span class="pastilla @(p.Rol.Contains("emandad") ? "azul" : "gris")">@p.Rol</span></td>
-                                        <td class="numero">@(p.Documento ?? "—")</td>
-                                        <td class="numero">@(p.Cuit ?? "—")</td>
-                                        <td>@(p.Domicilio ?? "—")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <Paginador Total="_personas.Count" Pagina="_paginaPersonas" Paginas="PaginasDe(_personas.Count)" Tamanio="_tamanioFicha"
-                               IrAPagina="p => _paginaPersonas = p" CambiarTamanio="t => CambiarTamanioFicha(t)" />
-                }
-            </section>
+            @if (_personas is null)
+            {
+                <p class="text-muted">Cargando…</p>
+            }
+            else
+            {
+                <PersonasExpediente ExpedienteId="Id" Puede="_puedeEditar" Personas="_personas" TiposDocumento="_tiposDocumento"
+                                    AgregarNueva="AgregarPersonaAsync" VincularExistente="VincularPersonaAsync"
+                                    Editar="EditarPersonaAsync" Quitar="QuitarPersonaAsync" Buscar="BuscarPersonasAsync" />
+            }
             break;
 
         case "periodos":
-            <section class="tarjeta" aria-labelledby="titulo-periodos">
-                <div class="cabecera-seccion">
-                    <span class="icono-tono tono-ambar"><Icono Nombre="calendario" Tamano="18" Grosor="2" /></span>
-                    <h2 id="titulo-periodos">Períodos adeudados</h2>
-                </div>
-                @if (_periodos is null)
-                {
-                    <p class="text-muted mb-0">Cargando…</p>
-                }
-                else if (_periodos.Count == 0)
-                {
-                    <p class="text-muted mb-0">No hay períodos adeudados cargados.</p>
-                }
-                else
-                {
-                    <div class="tabla-contenedor">
-                        <table class="table">
-                            <thead><tr><th>Año</th><th>Cuota</th><th>Concepto</th><th>Vencimiento</th><th class="text-end">Tributo</th><th class="text-end">Recargo</th></tr></thead>
-                            <tbody>
-                                @foreach (var p in PaginaDe(_periodos, _paginaPeriodos))
-                                {
-                                    <tr>
-                                        <td class="nro">@p.Anio</td><td>@(p.Cuota ?? "—")</td><td>@(p.Concepto ?? "—")</td>
-                                        <td class="numero">@(p.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                        <td class="text-end">@Importe(p.Tributo)</td><td class="text-end">@Importe(p.Recargo)</td>
-                                    </tr>
-                                }
-                                <tr>
-                                    <td colspan="4" class="principal-celda">Total (@_periodos.Count períodos)</td>
-                                    <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Tributo))</td>
-                                    <td class="text-end principal-celda">@Importe(_periodos.Sum(p => p.Recargo))</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <Paginador Total="_periodos.Count" Pagina="_paginaPeriodos" Paginas="PaginasDe(_periodos.Count)" Tamanio="_tamanioFicha"
-                               IrAPagina="p => _paginaPeriodos = p" CambiarTamanio="t => CambiarTamanioFicha(t)" />
-                }
-            </section>
+            @if (_periodos is null)
+            {
+                <p class="text-muted">Cargando…</p>
+            }
+            else
+            {
+                <PeriodosExpediente Puede="_puedeEditar" Periodos="_periodos"
+                                    Agregar="AgregarPeriodoAsync" Editar="EditarPeriodoAsync" Eliminar="EliminarPeriodoAsync" />
+            }
             break;
 
         case "etapas":
-            <EtapasExpediente ExpedienteId="Id" />
+            <EtapasExpediente ExpedienteId="Id" Cambiado="RecargarEncabezadoAsync" />
             break;
 
         case "tareas":
@@ -175,6 +171,10 @@ else if (_encabezado is not null)
                     <h2 id="titulo-tareas">Tareas del expediente</h2>
                     <a href="/tareas" class="small fw-semibold">Ir a Tareas</a>
                 </div>
+                @if (_mensajeTareas is not null)
+                {
+                    <div class="alert @(_exitoTareas ? "alert-success" : "alert-danger") py-2" role="status">@_mensajeTareas</div>
+                }
                 @if (_tareas is null)
                 {
                     <p class="text-muted mb-0">Cargando…</p>
@@ -187,7 +187,15 @@ else if (_encabezado is not null)
                 {
                     <div class="tabla-contenedor">
                         <table class="table">
-                            <thead><tr><th>Tarea</th><th>Vence</th><th>Responsable</th><th>Estado</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>Tarea</th><th>Vence</th><th>Responsable</th><th>Estado</th>
+                                    @if (_puedeEditarTareas)
+                                    {
+                                        <th class="text-end">Acciones</th>
+                                    }
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach (var t in PaginaDe(_tareas, _paginaTareas))
                                 {
@@ -196,6 +204,16 @@ else if (_encabezado is not null)
                                         <td class="numero">@(t.Vence?.ToString("dd/MM/yyyy") ?? "—")</td>
                                         <td>@(t.Responsable ?? "—")</td>
                                         <td><span class="pastilla @ColorEstadoTarea(t.Estado)">@NombreEstadoTarea(t.Estado)</span></td>
+                                        @if (_puedeEditarTareas)
+                                        {
+                                            <td class="text-end">
+                                                @if (t.Estado == EstadoTareaPendiente)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-success text-nowrap"
+                                                            @onclick="() => CumplirTareaAsync(t.Id)">Marcar cumplida</button>
+                                                }
+                                            </td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
@@ -234,43 +252,39 @@ else if (_encabezado is not null)
                         </dl>
                     </section>
 
-                    <section class="tarjeta destacada" aria-labelledby="titulo-titulo">
-                        <div class="cabecera-seccion">
-                            <span class="icono-tono"><Icono Nombre="moneda" Tamano="18" Grosor="2" /></span>
-                            <h2 id="titulo-titulo">Título de deuda</h2>
-                        </div>
-                        <div class="cifra-rotulo">Monto del título</div>
-                        <div class="cifra mb-3">@(_resumen.MontoTitulo is decimal t ? Importe(t) : "—")</div>
-                        <dl class="datos">
-                            <dt>Capital</dt><dd>@(_resumen.MontoCapital is decimal k ? Importe(k) : "—")</dd>
-                            <dt>Fecha del título</dt><dd>@(_resumen.FechaTitulo?.ToString("dd/MM/yyyy") ?? "—")</dd>
-                            <dt>Liquidación</dt><dd>@(_resumen.NroLiquidacion ?? "—")</dd>
-                        </dl>
-                    </section>
+                    @if (_tituloDeuda is not null)
+                    {
+                        <EditarTituloDeuda Datos="_tituloDeuda" Puede="_puedeEditar"
+                                           Guardar="GuardarTituloDeudaAsync" Sincronizar="SincronizarCapitalAsync" />
+                    }
 
-                    <section class="tarjeta" aria-labelledby="titulo-objeto">
-                        <div class="cabecera-seccion">
-                            <span class="icono-tono tono-celeste"><Icono Nombre="ubicacion" Tamano="18" Grosor="2" /></span>
-                            <h2 id="titulo-objeto">Objeto de la deuda</h2>
-                        </div>
-                        <dl class="datos">
-                            <dt>Cuenta / resolución</dt><dd>@(_resumen.NroCuenta ?? "—")</dd>
-                            <dt>Nomenclatura</dt><dd>@(_resumen.Nomenclatura ?? "—")</dd>
-                            <dt>Dominio</dt><dd>@(_resumen.Dominio ?? "—")</dd>
-                            <dt>Designación</dt><dd>@(_resumen.Designacion ?? "—")</dd>
-                            <dt>Matrícula RPI</dt><dd>@(_resumen.MatriculaRpi ?? "—")</dd>
-                        </dl>
-                    </section>
+                    @if (_objetoDeuda is not null)
+                    {
+                        <EditarObjetoDeuda Datos="_objetoDeuda" Puede="_puedeEditar" Guardar="GuardarObjetoDeudaAsync" />
+                    }
 
+                    @* Datos del juicio: si todavía no está judicializada, se puede abrir para cargarlos. *@
                     @if (_juicio is not null)
                     {
                         <EditarJuicio Datos="_juicio" Puede="_puedeEditar" Juzgados="_juzgados" Guardar="GuardarJuicioAsync" />
                     }
+                    @* La comparecencia es del juicio: sin judicializar no hay dónde comparecer. *@
+                    @if (_comparecencia is not null && _encabezado.Judicializado)
+                    {
+                        <EditarComparecencia Datos="_comparecencia" Puede="_puedeEditar" Guardar="GuardarComparecenciaAsync" />
+                    }
+
                     @if (_profesionales is not null)
                     {
                         <EditarProfesionales Datos="_profesionales" Puede="_puedeEditar"
                                              Procuradores="_procuradores" Patrocinantes="_patrocinantes" AbogadosInterior="_abogadosInterior"
                                              Guardar="GuardarProfesionalesAsync" />
+                    }
+
+                    @if (_clasificacion is not null)
+                    {
+                        <EditarClasificacion Datos="_clasificacion" Puede="_puedeEditar"
+                                             Regiones="_regiones" Campanias="_campanias" Guardar="GuardarClasificacionAsync" />
                     }
                     @if (_observaciones is not null)
                     {
@@ -299,9 +313,14 @@ else if (_encabezado is not null)
     private string? _pestanaCargada;
     private Procu360.Infraestructura.Expedientes.EncabezadoExpediente? _encabezado;
     private Procu360.Infraestructura.Expedientes.ResumenExpediente? _resumen;
-    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PersonaExpediente>? _personas;
-    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PeriodoExpediente>? _periodos;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.VinculoPersona>? _personas;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PeriodoEditable>? _periodos;
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.TareaExpediente>? _tareas;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _tiposDocumento = [];
+    private Procu360.Infraestructura.Expedientes.DatosObjetoDeuda? _objetoDeuda;
+    private Procu360.Infraestructura.Expedientes.DatosTituloDeuda? _tituloDeuda;
+    private Procu360.Infraestructura.Expedientes.DatosComparecencia? _comparecencia;
+    private Procu360.Infraestructura.Expedientes.DatosClasificacion? _clasificacion;
     private Procu360.Infraestructura.Expedientes.DatosJuicio? _juicio;
     private Procu360.Infraestructura.Expedientes.DatosObservaciones? _observaciones;
     private Procu360.Infraestructura.Expedientes.DatosProfesionales? _profesionales;
@@ -309,11 +328,19 @@ else if (_encabezado is not null)
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _procuradores = [];
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _patrocinantes = [];
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _abogadosInterior = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _regiones = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _campanias = [];
     private bool _puedeEditar;
+    private bool _puedeEditarTareas;
+    /// <summary>False cuando algo cambió el expediente desde otra pestaña y hay que releer el resumen.</summary>
+    private bool _resumenAlDia;
+    private string? _mensajeTareas;
+    private bool _exitoTareas;
     private int _tamanioFicha = 25;
-    private int _paginaPersonas = 1;
-    private int _paginaPeriodos = 1;
     private int _paginaTareas = 1;
+
+    /// <summary>Estado 1 de dbo.Tarea: pendiente. Es la única que se puede marcar cumplida.</summary>
+    private const byte EstadoTareaPendiente = 1;
 
     private string Pestana => Pestanas.Any(p => p.Clave == Tab) ? Tab! : "resumen";
 
@@ -325,7 +352,7 @@ else if (_encabezado is not null)
     private void CambiarTamanioFicha(int tamanio)
     {
         _tamanioFicha = tamanio;
-        _paginaPersonas = _paginaPeriodos = _paginaTareas = 1;
+        _paginaTareas = 1;
     }
 
     protected override async Task OnInitializedAsync()
@@ -333,6 +360,7 @@ else if (_encabezado is not null)
         var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
         Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
         _puedeEditar = await Autorizacion.TieneAsync("expedientes.editar");
+        _puedeEditarTareas = await Autorizacion.TieneAsync("tareas.editar");
     }
 
     /// <summary>
@@ -347,16 +375,18 @@ else if (_encabezado is not null)
             _encabezado = _visible ? await Servicio.EncabezadoAsync(Id) : null;
             _idCargado = Id;
             _pestanaCargada = null;
-            _paginaPersonas = _paginaPeriodos = _paginaTareas = 1;
+            _paginaTareas = 1;
         }
-        if (!_visible || _pestanaCargada == Pestana) return;
+        // El resumen se vuelve a leer si quedó viejo (por ejemplo, tras registrar una etapa en otra pestaña).
+        var yaCargada = _pestanaCargada == Pestana && (Pestana != "resumen" || _resumenAlDia);
+        if (!_visible || yaCargada) return;
 
         switch (Pestana)
         {
-            case "personas": _personas = await Servicio.PersonasAsync(Id); break;
-            case "periodos": _periodos = await Servicio.PeriodosAsync(Id); break;
+            case "personas": await CargarPersonasAsync(); break;
+            case "periodos": _periodos = await PeriodosServicio.ListarAsync(Id); break;
             case "etapas": break; // la pestaña carga sus datos en EtapasExpediente
-            case "tareas": _tareas = await Servicio.TareasAsync(Id); break;
+            case "tareas": _tareas = await Servicio.TareasAsync(Id); _mensajeTareas = null; break;
             default: await CargarResumenAsync(); break;
         }
         _pestanaCargada = Pestana;
@@ -365,8 +395,13 @@ else if (_encabezado is not null)
     /// <summary>Consultas en secuencia: los componentes de edición no consultan la base por su cuenta.</summary>
     private async Task CargarResumenAsync()
     {
+        _resumenAlDia = true;
         _resumen = await Servicio.ResumenAsync(Id);
+        _objetoDeuda = await Edicion.ObjetoDeudaAsync(Id);
+        _tituloDeuda = await Edicion.TituloDeudaAsync(Id);
         _juicio = await Edicion.JuicioAsync(Id);
+        _comparecencia = await Edicion.ComparecenciaAsync(Id);
+        _clasificacion = await Edicion.ClasificacionAsync(Id);
         _observaciones = await Edicion.ObservacionesAsync(Id);
         _profesionales = await Edicion.ProfesionalesAsync(Id);
         if (_puedeEditar)
@@ -375,7 +410,165 @@ else if (_encabezado is not null)
             _procuradores = await Edicion.ProfesionalesDeRolAsync("procurador");
             _patrocinantes = await Edicion.ProfesionalesDeRolAsync("patrocinante");
             _abogadosInterior = await Edicion.ProfesionalesDeRolAsync("abogadoInterior");
+            _regiones = await Edicion.RegionesAsync();
+            _campanias = await Edicion.CampaniasAsync();
         }
+    }
+
+    // ------------------------------------------------------------- personas
+
+    private async Task CargarPersonasAsync()
+    {
+        _personas = await PersonasServicio.ListarAsync(Id);
+        if (_puedeEditar && _tiposDocumento.Count == 0)
+            _tiposDocumento = await PersonasServicio.TiposDocumentoAsync();
+    }
+
+    private Task<IReadOnlyList<Procu360.Infraestructura.Expedientes.PersonaEncontrada>> BuscarPersonasAsync(string texto) =>
+        PersonasServicio.BuscarAsync(Id, texto);
+
+    private async Task<string?> AgregarPersonaAsync(Procu360.Infraestructura.Expedientes.DatosPersona datos)
+    {
+        var r = await PersonasServicio.AgregarNuevaAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarPersonasAsync();
+        return null;
+    }
+
+    private async Task<string?> VincularPersonaAsync(long personaId, byte rol)
+    {
+        var r = await PersonasServicio.VincularExistenteAsync(Id, personaId, rol);
+        if (!r.Exito) return r.Error;
+        await RecargarPersonasAsync();
+        return null;
+    }
+
+    private async Task<string?> EditarPersonaAsync(long vinculoId,
+        Procu360.Infraestructura.Expedientes.DatosPersona datos, byte[] versionPersona)
+    {
+        var r = await PersonasServicio.EditarAsync(Id, vinculoId, datos, versionPersona);
+        if (!r.Exito) return r.Error;
+        await RecargarPersonasAsync();
+        return null;
+    }
+
+    private async Task<string?> QuitarPersonaAsync(long vinculoId)
+    {
+        var r = await PersonasServicio.QuitarAsync(Id, vinculoId);
+        if (!r.Exito) return r.Error;
+        await RecargarPersonasAsync();
+        return null;
+    }
+
+    /// <summary>El encabezado muestra el demandado y los codemandados, así que también se rehace.</summary>
+    private async Task RecargarPersonasAsync()
+    {
+        _personas = await PersonasServicio.ListarAsync(Id);
+        _encabezado = await Servicio.EncabezadoAsync(Id);
+        StateHasChanged();
+    }
+
+    // ------------------------------------------------------------- etapas
+
+    /// <summary>
+    /// Registrar una etapa cambia la etapa actual y, en el flujo principal, la instancia del expediente:
+    /// las dos se muestran en el encabezado, así que hay que volver a leerlo.
+    /// </summary>
+    private async Task RecargarEncabezadoAsync()
+    {
+        _encabezado = await Servicio.EncabezadoAsync(Id);
+        // El resumen que haya quedado en memoria es viejo: se vuelve a leer al entrar a esa pestaña.
+        _resumenAlDia = false;
+        StateHasChanged();
+    }
+
+    // ------------------------------------------------------------- tareas
+
+    /// <summary>Marca la tarea como cumplida sin salir de la ficha. El servicio valida permiso y alcance.</summary>
+    private async Task CumplirTareaAsync(long tareaId)
+    {
+        var r = await TareasServicio.CumplirAsync(tareaId);
+        _exitoTareas = r.Exito;
+        _mensajeTareas = r.Exito ? "Tarea marcada como cumplida." : r.Error;
+        if (r.Exito) _tareas = await Servicio.TareasAsync(Id);
+    }
+
+    // ------------------------------------------------------------- períodos
+
+    private async Task<string?> AgregarPeriodoAsync(Procu360.Infraestructura.Expedientes.DatosPeriodo datos)
+    {
+        var r = await PeriodosServicio.AgregarAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarPeriodosAsync();
+        return null;
+    }
+
+    private async Task<string?> EditarPeriodoAsync(long periodoId,
+        Procu360.Infraestructura.Expedientes.DatosPeriodo datos, byte[] version)
+    {
+        var r = await PeriodosServicio.EditarAsync(Id, periodoId, datos, version);
+        if (!r.Exito) return r.Error;
+        await RecargarPeriodosAsync();
+        return null;
+    }
+
+    private async Task<string?> EliminarPeriodoAsync(long periodoId)
+    {
+        var r = await PeriodosServicio.EliminarAsync(Id, periodoId);
+        if (!r.Exito) return r.Error;
+        await RecargarPeriodosAsync();
+        return null;
+    }
+
+    /// <summary>El capital del título sigue a los períodos, así que se vuelve a leer con ellos.</summary>
+    private async Task RecargarPeriodosAsync()
+    {
+        _periodos = await PeriodosServicio.ListarAsync(Id);
+        _tituloDeuda = await Edicion.TituloDeudaAsync(Id);
+        StateHasChanged();
+    }
+
+    // ------------------------------------------------------------- secciones del resumen
+
+    private async Task<string?> GuardarObjetoDeudaAsync(Procu360.Infraestructura.Expedientes.DatosObjetoDeuda datos)
+    {
+        var r = await Edicion.GuardarObjetoDeudaAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    private async Task<string?> GuardarTituloDeudaAsync(Procu360.Infraestructura.Expedientes.DatosTituloDeuda datos)
+    {
+        var r = await Edicion.GuardarTituloDeudaAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    /// <summary>Iguala el capital a la suma de períodos, aunque antes se haya editado a mano.</summary>
+    private async Task<string?> SincronizarCapitalAsync()
+    {
+        var r = await Edicion.SincronizarCapitalAsync(Id, forzar: true);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    private async Task<string?> GuardarComparecenciaAsync(Procu360.Infraestructura.Expedientes.DatosComparecencia datos)
+    {
+        var r = await Edicion.GuardarComparecenciaAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
+    }
+
+    private async Task<string?> GuardarClasificacionAsync(Procu360.Infraestructura.Expedientes.DatosClasificacion datos)
+    {
+        var r = await Edicion.GuardarClasificacionAsync(Id, datos);
+        if (!r.Exito) return r.Error;
+        await RecargarAsync();
+        return null;
     }
 
     private async Task<string?> GuardarProfesionalesAsync(Procu360.Infraestructura.Expedientes.DatosProfesionales datos)

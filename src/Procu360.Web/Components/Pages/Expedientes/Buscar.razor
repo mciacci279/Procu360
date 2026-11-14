@@ -49,6 +49,21 @@
                 }
             </select>
         </label>
+        <label class="chip-select">
+            <span>Etapa:</span>
+            <select name="etapa">
+                <option value="">Todas</option>
+                @foreach (var e in _etapas)
+                {
+                    <option value="@e.Id" selected="@(Etapa == e.Id)">@e.Nombre</option>
+                }
+            </select>
+        </label>
+        @* Solo tiene sentido junto con una etapa elegida: sin etapa no cambia nada. *@
+        <label class="chip-toggle" title="Trae los expedientes que alguna vez pasaron por la etapa elegida, aunque hoy estén en otra">
+            <input type="checkbox" name="historicas" value="true" checked="@(Historicas == true)" />
+            <span>Incluir etapas históricas</span>
+        </label>
         <label class="chip-toggle">
             <input type="checkbox" name="sinMov" value="true" checked="@(SinMov == true)" />
             <span>Sin movimiento</span>
@@ -139,6 +154,8 @@ else
     [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
     [SupplyParameterFromQuery(Name = "comitente")] public int? Comitente { get; set; }
     [SupplyParameterFromQuery(Name = "instancia")] public int? Instancia { get; set; }
+    [SupplyParameterFromQuery(Name = "etapa")] public int? Etapa { get; set; }
+    [SupplyParameterFromQuery(Name = "historicas")] public bool? Historicas { get; set; }
     [SupplyParameterFromQuery(Name = "sinMov")] public bool? SinMov { get; set; }
     [SupplyParameterFromQuery(Name = "bajas")] public bool? Bajas { get; set; }
     [SupplyParameterFromQuery(Name = "pagina")] public int? Pagina { get; set; }
@@ -146,10 +163,11 @@ else
 
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _comitentes = [];
     private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _instancias = [];
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> _etapas = [];
     private Procu360.Infraestructura.Expedientes.ResultadoBusqueda? _resultado;
 
     private bool HayCriterio => !string.IsNullOrWhiteSpace(Q) || Comitente is not null || Instancia is not null
-        || SinMov == true || Bajas == true;
+        || Etapa is not null || SinMov == true || Bajas == true;
 
     private int Tamanio => Paginador.Tamanios.Contains(Tam ?? 0) ? Tam!.Value : 25;
 
@@ -157,6 +175,7 @@ else
     {
         _comitentes = await Busqueda.ComitentesAsync();
         _instancias = await Busqueda.InstanciasAsync();
+        _etapas = await Busqueda.EtapasAsync();
 
         if (!HayCriterio) return;
 
@@ -167,7 +186,9 @@ else
             SinMovimiento: SinMov == true,
             IncluirDadosDeBaja: Bajas == true,
             Pagina: Pagina ?? 1,
-            TamanioPagina: Tamanio));
+            TamanioPagina: Tamanio,
+            EtapaId: Etapa,
+            EtapasHistoricas: Historicas == true));
     }
 
     private string Enlace(int pagina, int tamanio)
@@ -177,6 +198,8 @@ else
         if (!string.IsNullOrWhiteSpace(Q)) partes.Add($"q={Uri.EscapeDataString(Q)}");
         if (Comitente is int c) partes.Add($"comitente={c}");
         if (Instancia is int i) partes.Add($"instancia={i}");
+        if (Etapa is int et) partes.Add($"etapa={et}");
+        if (Historicas == true) partes.Add("historicas=true");
         if (SinMov == true) partes.Add("sinMov=true");
         if (Bajas == true) partes.Add("bajas=true");
         return "/expedientes?" + string.Join("&", partes);

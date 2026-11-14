@@ -956,6 +956,8 @@ public partial class Procu360DbContext : DbContext
 
             entity.HasIndex(e => new { e.EstudioId, e.HitoSistema }, "IX_conf_Etapa_EstudioId_HitoSistema").HasFilter("([HitoSistema] IS NOT NULL)");
 
+            entity.HasIndex(e => new { e.EstudioId, e.InstanciaId }, "IX_conf_Etapa_EstudioId_InstanciaId").HasFilter("([InstanciaId] IS NOT NULL)");
+
             entity.HasIndex(e => new { e.EstudioId, e.Flujo, e.Nombre }, "UQ_conf_Etapa_EstudioId_Flujo_Nombre").IsUnique();
 
             entity.HasIndex(e => new { e.EstudioId, e.Id }, "UQ_conf_Etapa_EstudioId_Id").IsUnique();
@@ -990,6 +992,11 @@ public partial class Procu360DbContext : DbContext
                 .HasPrincipalKey(p => new { p.EstudioId, p.Id })
                 .HasForeignKey(d => new { d.EstudioId, d.EtapaSiguienteId })
                 .HasConstraintName("FK_conf_Etapa_EtapaSiguienteId");
+
+            entity.HasOne(d => d.Instancia).WithMany(p => p.Etapa)
+                .HasPrincipalKey(p => new { p.EstudioId, p.Id })
+                .HasForeignKey(d => new { d.EstudioId, d.InstanciaId })
+                .HasConstraintName("FK_conf_Etapa_InstanciaId");
         });
 
         modelBuilder.Entity<EtapaExpediente>(entity =>

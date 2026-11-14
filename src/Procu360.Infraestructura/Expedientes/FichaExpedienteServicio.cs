@@ -14,7 +14,21 @@ public sealed record EncabezadoExpediente(
     string? Instancia,
     string? EtapaActual,
     bool Anulado,
-    string? MotivoAnulacion);
+    string? MotivoAnulacion,
+    string? NroCuenta,
+    string? Comitente,
+    string? Demandado,
+    int Codemandados,
+    string? Concepto,
+    DateOnly? FechaSorteo,
+    string? Sorteo)
+{
+    /// <summary>
+    /// El expediente está judicializado cuando ya tiene número de expediente judicial o juzgado asignado.
+    /// Los datos del juicio solo se muestran en ese caso.
+    /// </summary>
+    public bool Judicializado => NroExpedienteJudicial is not null || Juzgado is not null;
+}
 
 public sealed record ResumenExpediente(
     string? Demandado,
@@ -53,15 +67,38 @@ public sealed class FichaExpedienteServicio(Procu360DbContext db, AlcanceExpedie
         return await ids.AnyAsync(x => x == id, ct);
     }
 
-    public Task<EncabezadoExpediente?> EncabezadoAsync(long id, CancellationToken ct = default) =>
-        db.Expediente.Where(e => e.Id == id).Select(e => new EncabezadoExpediente(
-            e.Id, e.NroOrden, e.NroExpedienteJudicial, e.Caratula, e.Recaratulacion,
-            e.Juzgado != null ? e.Juzgado.Nombre : null,
-            db.Profesional.Where(p => p.Id == e.ProcuradorId).Select(p => p.Nombre).FirstOrDefault(),
-            db.Instancia.Where(i => i.Id == e.InstanciaActualId).Select(i => i.Nombre).FirstOrDefault(),
-            db.Etapa.Where(x => x.Id == e.EtapaActualId).Select(x => x.Nombre).FirstOrDefault(),
-            e.Anulado, e.MotivoAnulacion))
-        .FirstOrDefaultAsync(ct);
+    public async Task<EncabezadoExpediente?> EncabezadoAsync(long id, CancellationToken ct = default)
+    {
+        var e = await db.Expediente.Where(x => x.Id == id).Select(x => new EncabezadoExpediente(
+            x.Id, x.NroOrden, x.NroExpedienteJudicial, x.Caratula, x.Recaratulacion,
+            x.Juzgado != null ? x.Juzgado.Nombre : null,
+            db.Profesional.Where(p => p.Id == x.ProcuradorId).Select(p => p.Nombre).FirstOrDefault(),
+            db.Instancia.Where(i => i.Id == x.InstanciaActualId).Select(i => i.Nombre).FirstOrDefault(),
+            db.Etapa.Where(t => t.Id == x.EtapaActualId).Select(t => t.Nombre).FirstOrDefault(),
+            x.Anulado, x.MotivoAnulacion,
+            x.NroCuenta,
+            db.Comitente.Where(c => c.Id == x.ComitenteId).Select(c => c.Nombre).FirstOrDefault(),
+            null, 0,
+            db.ConceptoDeuda.Where(c => c.Id == x.ConceptoDeudaId).Select(c => c.Nombre).FirstOrDefault(),
+            x.FechaSorteo, x.Sorteo))
+            .FirstOrDefaultAsync(ct);
+        if (e is null) return null;
+
+        return e with
+        {
+            Demandado = await DemandadoAsync(id, ct),
+            Codemandados = await db.ExpedientePersona.CountAsync(
+                ep => ep.ExpedienteId == id && ep.Rol == RolesPersonaExpediente.Codemandado, ct)
+        };
+    }
+
+    /// <summary>Nombre del demandado principal: razón social para empresas, "Apellido, Nombre" para personas.</summary>
+    private Task<string?> DemandadoAsync(long id, CancellationToken ct) =>
+        db.ExpedientePersona.Where(ep => ep.ExpedienteId == id && ep.Rol == RolesPersonaExpediente.Demandado)
+            .OrderBy(ep => ep.Posicion)
+            .Select(ep => ep.Persona.RazonSocial
+                          ?? ((ep.Persona.Apellido ?? "") + (ep.Persona.Nombre != null ? ", " + ep.Persona.Nombre : "")))
+            .FirstOrDefaultAsync(ct);
 
     public async Task<ResumenExpediente?> ResumenAsync(long id, CancellationToken ct = default)
     {
@@ -72,13 +109,9 @@ public sealed class FichaExpedienteServicio(Procu360DbContext db, AlcanceExpedie
         }).FirstOrDefaultAsync(ct);
         if (e is null) return null;
 
-        var demandado = await db.ExpedientePersona.Where(ep => ep.ExpedienteId == id && ep.Rol == 1)
-            .OrderBy(ep => ep.Posicion)
-            // Empresas: razón social. Personas: "Apellido, Nombre" (sin coma si falta el nombre).
-            .Select(ep => ep.Persona.RazonSocial
-                          ?? ((ep.Persona.Apellido ?? "") + (ep.Persona.Nombre != null ? ", " + ep.Persona.Nombre : "")))
-            .FirstOrDefaultAsync(ct);
-        var codemandados = await db.ExpedientePersona.CountAsync(ep => ep.ExpedienteId == id && ep.Rol == 2, ct);
+        var demandado = await DemandadoAsync(id, ct);
+        var codemandados = await db.ExpedientePersona.CountAsync(
+            ep => ep.ExpedienteId == id && ep.Rol == RolesPersonaExpediente.Codemandado, ct);
         var comitente = e.ComitenteId is int c ? await db.Comitente.Where(x => x.Id == c).Select(x => x.Nombre).FirstOrDefaultAsync(ct) : null;
         var concepto = e.ConceptoDeudaId is int k ? await db.ConceptoDeuda.Where(x => x.Id == k).Select(x => x.Nombre).FirstOrDefaultAsync(ct) : null;
 
@@ -107,7 +140,7 @@ public sealed class FichaExpedienteServicio(Procu360DbContext db, AlcanceExpedie
 
         return filas.Select(f => new PersonaExpediente(
             f.Nombre.Trim().TrimEnd(','),
-            f.Rol switch { 1 => "Demandado", 2 => "Codemandado", 3 => "Responsable solidario", _ => "Otro" },
+            RolesPersonaExpediente.Nombre(f.Rol),
             f.NroDocumento,
             f.Cuit,
             domicilios.Where(d => d.PersonaId == f.PersonaId)

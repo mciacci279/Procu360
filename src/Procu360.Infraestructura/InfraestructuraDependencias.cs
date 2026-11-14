@@ -24,6 +24,9 @@ public static class InfraestructuraDependencias
         services.AddScoped<Procu360.Infraestructura.Tareas.ServicioTareas>();
         services.AddScoped<Procu360.Infraestructura.Etapas.ServicioEtapas>();
         services.AddScoped<Procu360.Infraestructura.Expedientes.ServicioEdicionExpediente>();
+        services.AddScoped<Procu360.Infraestructura.Expedientes.ServicioPersonasExpediente>();
+        services.AddScoped<Procu360.Infraestructura.Expedientes.ServicioPeriodosExpediente>();
+        services.AddScoped<Procu360.Infraestructura.Configuracion.ServicioCatalogoEtapas>();
         services.AddScoped<SesionEstudioInterceptor>();
         services.AddDbContext<Procu360DbContext>((sp, opciones) => opciones
             .UseSqlServer(cadenaConexion)

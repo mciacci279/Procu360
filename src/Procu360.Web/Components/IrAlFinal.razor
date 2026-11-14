@@ -1,0 +1,62 @@
+@* Botón flotante para saltar al final de la página sin usar el scroll.
+   Aparece parpadeando solo cuando hay contenido más abajo; al llegar al final se ofrece volver arriba. *@
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<button type="button" class="ir-al-final @(_hayMas ? "visible" : "arriba")"
+        title="@(_hayMas ? "Ir al final de la página" : "Volver al inicio")"
+        aria-label="@(_hayMas ? "Ir al final de la página" : "Volver al inicio de la página")"
+        @onclick="AlternarAsync">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 5v14" />
+        <path d="m19 12-7 7-7-7" />
+    </svg>
+</button>
+
+@code {
+    private IJSObjectReference? _modulo;
+    private DotNetObjectReference<IrAlFinal>? _referencia;
+    private bool _hayMas;
+
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!primerRender) return;
+        _modulo = await Js.InvokeAsync<IJSObjectReference>("import", "./js/ir-al-final.js");
+        _referencia = DotNetObjectReference.Create(this);
+        await _modulo.InvokeVoidAsync("registrar", _referencia);
+    }
+
+    /// <summary>Lo llama el navegador al desplazarse o cambiar el tamaño de la ventana.</summary>
+    [JSInvokable]
+    public Task CambioVisibilidad(bool hayMas)
+    {
+        if (_hayMas == hayMas) return Task.CompletedTask;
+        _hayMas = hayMas;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AlternarAsync()
+    {
+        if (_modulo is null) return;
+        await _modulo.InvokeVoidAsync(_hayMas ? "irAlFinal" : "irAlInicio");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _referencia?.Dispose();
+        if (_modulo is not null)
+        {
+            try
+            {
+                await _modulo.InvokeVoidAsync("desregistrar");
+                await _modulo.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // El circuito ya se cerró al navegar: no hay módulo que liberar del lado del navegador.
+            }
+        }
+    }
+}

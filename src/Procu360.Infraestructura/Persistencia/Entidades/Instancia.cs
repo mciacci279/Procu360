@@ -44,5 +44,8 @@ public partial class Instancia
 
     public virtual ICollection<InstanciaExpediente> InstanciaExpediente { get; set; } = new List<InstanciaExpediente>();
 
+    /// <summary>Etapas del flujo principal que llevan el expediente a esta instancia.</summary>
+    public virtual ICollection<Etapa> Etapa { get; set; } = new List<Etapa>();
+
     public virtual ICollection<PlantillaEscrito> PlantillaEscrito { get; set; } = new List<PlantillaEscrito>();
 }

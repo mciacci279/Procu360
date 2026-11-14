@@ -1,0 +1,366 @@
+@* ABM de las personas del expediente: demandados, codemandados y responsables solidarios.
+   La grilla a la izquierda y el panel de acción destacado a la derecha. *@
+
+<div class="columnas">
+    <div class="principal">
+        <section class="tarjeta" aria-labelledby="titulo-personas">
+            <div class="cabecera-seccion">
+                <span class="icono-tono tono-azul"><Icono Nombre="usuarios" Tamano="18" Grosor="2" /></span>
+                <h2 id="titulo-personas">Personas del expediente</h2>
+                @if (_personas.Count > 0)
+                {
+                    <span class="pastilla gris">@_personas.Count @(_personas.Count == 1 ? "persona" : "personas")</span>
+                }
+            </div>
+
+            @if (_mensaje is not null)
+            {
+                <div class="alert @(_exito ? "alert-success" : "alert-danger") py-2" role="status">@_mensaje</div>
+            }
+
+            @if (_cargando)
+            {
+                <p class="text-muted mb-0">Cargando…</p>
+            }
+            else if (_personas.Count == 0)
+            {
+                <p class="text-muted mb-0">No hay personas cargadas. Agregá el demandado desde el panel de la derecha.</p>
+            }
+            else
+            {
+                <div class="tabla-contenedor">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Persona</th><th>Rol</th><th>Documento</th><th>CUIT</th><th>Contacto</th>
+                                @if (Puede)
+                                {
+                                    <th class="text-end">Acciones</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Pagina)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="principal-celda">@NombreOSinNombre(p)</span>
+                                        @if (p.Domicilio is not null)
+                                        {
+                                            <span class="secundario">@p.Domicilio</span>
+                                        }
+                                    </td>
+                                    <td><span class="pastilla @ColorRol(p.Rol)">@Procu360.Infraestructura.Expedientes.RolesPersonaExpediente.Nombre(p.Rol)</span></td>
+                                    <td class="numero">@(p.NroDocumento ?? "—")</td>
+                                    <td class="numero">@(p.Cuit ?? "—")</td>
+                                    <td>
+                                        @if (p.Telefono1 is null && p.Email is null)
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                        else
+                                        {
+                                            @if (p.Telefono1 is not null)
+                                            {
+                                                <span class="d-block">@p.Telefono1</span>
+                                            }
+                                            @if (p.Email is not null)
+                                            {
+                                                <span class="secundario">@p.Email</span>
+                                            }
+                                        }
+                                    </td>
+                                    @if (Puede)
+                                    {
+                                        <td class="text-end text-nowrap">
+                                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => EditarPersona(p)">Editar</button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => QuitarAsync(p)"
+                                                    title="Quitar del expediente">Quitar</button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <Paginador Total="_personas.Count" Pagina="_pagina" Paginas="Paginas" Tamanio="_tamanio"
+                           IrAPagina="p => _pagina = p" CambiarTamanio="CambiarTamanio" />
+            }
+        </section>
+    </div>
+
+    @if (Puede)
+    {
+        <div class="lateral">
+            <section class="tarjeta panel-accion" aria-labelledby="titulo-agregar">
+                <div class="cabecera-seccion">
+                    <span class="icono-tono tono-azul">
+                        <Icono Nombre="@(_vinculoEditando is null ? "mas" : "nota")" Tamano="18" Grosor="2.2" />
+                    </span>
+                    <h2 id="titulo-agregar">@(_vinculoEditando is null ? "Agregar persona" : "Editar persona")</h2>
+                </div>
+
+                @if (_vinculoEditando is null)
+                {
+                    @* Buscar una persona que ya exista en el Estudio, para no duplicarla. *@
+                    <div class="mb-3">
+                        <label class="form-label small" for="buscarPersona">Buscar una persona ya cargada</label>
+                        <input id="buscarPersona" class="form-control form-control-sm" type="search"
+                               placeholder="Documento, CUIT o apellido" value="@_textoBusqueda" @oninput="BuscarAsync" />
+                        <div class="form-text">Desde 3 caracteres. Si no aparece, cargala como nueva más abajo.</div>
+                    </div>
+                    @if (_buscando)
+                    {
+                        <p class="text-muted small mb-3">Buscando…</p>
+                    }
+                    else if (_encontradas.Count > 0)
+                    {
+                        <ul class="lista-resultados mb-3">
+                            @foreach (var e in _encontradas)
+                            {
+                                <li>
+                                    <div>
+                                        <span class="principal-celda">@e.NombreMostrado</span>
+                                        <span class="secundario">@(e.NroDocumento ?? e.Cuit ?? "sin documento")</span>
+                                    </div>
+                                    @if (e.YaEnElExpediente)
+                                    {
+                                        <span class="pastilla gris">Ya está</span>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VincularAsync(e)">Vincular</button>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else if (_textoBusqueda.Trim().Length >= 3)
+                    {
+                        <p class="text-muted small mb-3">No encontramos a nadie con ese dato.</p>
+                    }
+                    <hr class="my-3" />
+                }
+
+                <div class="mb-3">
+                    <label class="form-label small" for="rol">Rol en el expediente</label>
+                    <select id="rol" class="form-select form-select-sm" @bind="_rol">
+                        <option value="1">Demandado</option>
+                        <option value="2">Codemandado</option>
+                        <option value="3">Responsable solidario</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small" for="tipoPersona">Tipo</label>
+                    <select id="tipoPersona" class="form-select form-select-sm" @bind="_esFisica">
+                        <option value="true">Persona física</option>
+                        <option value="false">Empresa</option>
+                    </select>
+                </div>
+
+                @if (_esFisica)
+                {
+                    <div class="mb-3">
+                        <label class="form-label small" for="apellido">Apellido</label>
+                        <input id="apellido" class="form-control form-control-sm" maxlength="150" @bind="_apellido" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="nombrePersona">Nombre</label>
+                        <input id="nombrePersona" class="form-control form-control-sm" maxlength="150" @bind="_nombre" />
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label small" for="razonSocial">Razón social</label>
+                        <input id="razonSocial" class="form-control form-control-sm" maxlength="250" @bind="_razonSocial" />
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label small" for="tipoDoc">Tipo de documento</label>
+                    <select id="tipoDoc" class="form-select form-select-sm" @bind="_tipoDocumentoId">
+                        <option value="0">Sin especificar</option>
+                        @foreach (var t in TiposDocumento)
+                        {
+                            <option value="@t.Id">@t.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="nroDoc">Nro. de documento</label>
+                    <input id="nroDoc" class="form-control form-control-sm" maxlength="20" @bind="_nroDocumento" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="cuit">CUIT</label>
+                    <input id="cuit" class="form-control form-control-sm" maxlength="13" @bind="_cuit" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="telefono">Teléfono</label>
+                    <input id="telefono" class="form-control form-control-sm" maxlength="50" @bind="_telefono" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="emailPersona">Email</label>
+                    <input id="emailPersona" class="form-control form-control-sm" type="email" maxlength="150" @bind="_email" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary flex-grow-1" @onclick="GuardarAsync">
+                        @(_vinculoEditando is null ? "Agregar al expediente" : "Guardar cambios")
+                    </button>
+                    @if (_vinculoEditando is not null)
+                    {
+                        <button class="btn btn-outline-secondary" @onclick="CancelarEdicion">Cancelar</button>
+                    }
+                </div>
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public long ExpedienteId { get; set; }
+    [Parameter] public bool Puede { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.VinculoPersona> Personas { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<Procu360.Infraestructura.Expedientes.OpcionCatalogo> TiposDocumento { get; set; } = [];
+    /// <summary>Operaciones del ABM. Devuelven el error a mostrar, o null si salió bien.</summary>
+    [Parameter, EditorRequired] public Func<Procu360.Infraestructura.Expedientes.DatosPersona, Task<string?>> AgregarNueva { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<long, byte, Task<string?>> VincularExistente { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<long, Procu360.Infraestructura.Expedientes.DatosPersona, byte[], Task<string?>> Editar { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<long, Task<string?>> Quitar { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<string, Task<IReadOnlyList<Procu360.Infraestructura.Expedientes.PersonaEncontrada>>> Buscar { get; set; } = null!;
+
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.VinculoPersona> _personas = [];
+    private bool _cargando = true;
+    private string? _mensaje;
+    private bool _exito;
+    private int _pagina = 1;
+    private int _tamanio = 25;
+
+    // Formulario
+    private Procu360.Infraestructura.Expedientes.VinculoPersona? _vinculoEditando;
+    private byte _rol = 1;
+    private bool _esFisica = true;
+    private string? _apellido, _nombre, _razonSocial, _nroDocumento, _cuit, _telefono, _email;
+    private int _tipoDocumentoId;
+
+    // Búsqueda de personas existentes
+    private string _textoBusqueda = string.Empty;
+    private bool _buscando;
+    private IReadOnlyList<Procu360.Infraestructura.Expedientes.PersonaEncontrada> _encontradas = [];
+
+    private int Paginas => Math.Max(1, (int)Math.Ceiling(_personas.Count / (double)_tamanio));
+
+    private IEnumerable<Procu360.Infraestructura.Expedientes.VinculoPersona> Pagina =>
+        _personas.Skip((Math.Clamp(_pagina, 1, Paginas) - 1) * _tamanio).Take(_tamanio);
+
+    protected override void OnParametersSet()
+    {
+        _personas = Personas;
+        _cargando = false;
+    }
+
+    private void CambiarTamanio(int tamanio)
+    {
+        _tamanio = tamanio;
+        _pagina = 1;
+    }
+
+    private static string NombreOSinNombre(Procu360.Infraestructura.Expedientes.VinculoPersona p) =>
+        string.IsNullOrWhiteSpace(p.NombreMostrado) ? "(sin nombre)" : p.NombreMostrado;
+
+    private static string ColorRol(byte rol) => rol switch
+    {
+        1 => "azul", 2 => "cian", 3 => "ambar", _ => "gris"
+    };
+
+    private async Task BuscarAsync(ChangeEventArgs e)
+    {
+        _textoBusqueda = e.Value?.ToString() ?? string.Empty;
+        if (_textoBusqueda.Trim().Length < 3)
+        {
+            _encontradas = [];
+            return;
+        }
+        _buscando = true;
+        _encontradas = await Buscar(_textoBusqueda);
+        _buscando = false;
+    }
+
+    private async Task VincularAsync(Procu360.Infraestructura.Expedientes.PersonaEncontrada persona)
+    {
+        Informar(await VincularExistente(persona.PersonaId, _rol), "Persona vinculada al expediente.");
+        if (_exito)
+        {
+            _textoBusqueda = string.Empty;
+            _encontradas = [];
+        }
+    }
+
+    private void EditarPersona(Procu360.Infraestructura.Expedientes.VinculoPersona p)
+    {
+        _vinculoEditando = p;
+        _rol = p.Rol;
+        _esFisica = p.EsPersonaFisica;
+        _apellido = p.Apellido;
+        _nombre = p.Nombre;
+        _razonSocial = p.RazonSocial;
+        _tipoDocumentoId = p.TipoDocumentoId ?? 0;
+        _nroDocumento = p.NroDocumento;
+        _cuit = p.Cuit;
+        _telefono = p.Telefono1;
+        _email = p.Email;
+        _mensaje = null;
+    }
+
+    private void CancelarEdicion()
+    {
+        _vinculoEditando = null;
+        LimpiarFormulario();
+        _mensaje = null;
+    }
+
+    private void LimpiarFormulario()
+    {
+        _rol = 1;
+        _esFisica = true;
+        _apellido = _nombre = _razonSocial = _nroDocumento = _cuit = _telefono = _email = null;
+        _tipoDocumentoId = 0;
+    }
+
+    private async Task GuardarAsync()
+    {
+        var datos = new Procu360.Infraestructura.Expedientes.DatosPersona(
+            _esFisica, _apellido, _nombre, _razonSocial,
+            _tipoDocumentoId == 0 ? null : _tipoDocumentoId,
+            _nroDocumento, _cuit, _telefono, _email, _rol);
+
+        if (_vinculoEditando is { } v)
+        {
+            Informar(await Editar(v.VinculoId, datos, v.VersionPersona), "Persona actualizada.");
+            if (_exito) { _vinculoEditando = null; LimpiarFormulario(); }
+        }
+        else
+        {
+            Informar(await AgregarNueva(datos), "Persona agregada al expediente.");
+            if (_exito) LimpiarFormulario();
+        }
+    }
+
+    private async Task QuitarAsync(Procu360.Infraestructura.Expedientes.VinculoPersona p)
+    {
+        Informar(await Quitar(p.VinculoId), "Persona quitada del expediente.");
+        if (_exito && _vinculoEditando?.VinculoId == p.VinculoId)
+        {
+            _vinculoEditando = null;
+            LimpiarFormulario();
+        }
+    }
+
+    private void Informar(string? error, string exito)
+    {
+        _exito = error is null;
+        _mensaje = error ?? exito;
+    }
+}

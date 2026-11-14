@@ -134,11 +134,16 @@
     gap: 4px;
     overflow-y: auto;
     overflow-x: hidden;
-    /* Si la lista no entra (pantallas bajas) se desliza igual, pero sin barra de desplazamiento:
-       el borde inferior se desvanece para indicar que hay más. */
+    /* Si la lista no entra (pantallas bajas) se desliza igual, pero sin barra de desplazamiento.
+       El degradado del borde inferior se aplica solo cuando hay algo más abajo (clase "con-mas"),
+       porque si no recorta los últimos títulos en pantallas de poca altura. */
     scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+    padding-bottom: 4px;
+}
+
+.barra nav.con-mas {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
 }
 
 .barra nav::-webkit-scrollbar {
@@ -156,6 +161,28 @@
 
 .barra .grupo:first-child {
     padding-top: 0;
+}
+
+/* Notebooks de poca altura: se ajustan los espacios para que entren todos los items
+   antes de tener que desplazar la lista. */
+@media (max-height: 820px) {
+    .barra {
+        gap: 14px;
+        padding-top: 14px;
+        padding-bottom: 12px;
+    }
+
+    .barra .grupo {
+        padding: 8px 14px 4px;
+    }
+
+    .barra .item {
+        min-height: 38px;
+    }
+
+    .barra nav {
+        gap: 2px;
+    }
 }
 
 .barra .item {

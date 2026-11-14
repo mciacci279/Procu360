@@ -1,0 +1,656 @@
+@page "/estudio/etapas"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
+@inject ServicioPermisos Autorizacion
+@inject Procu360.Infraestructura.Configuracion.ServicioCatalogoEtapas Catalogo
+
+<PageTitle>Etapas e instancias · Procu360</PageTitle>
+
+<div class="encabezado-pagina">
+    <div>
+        <h1>Etapas e instancias</h1>
+        <p class="bajada">Los pasos del trámite, sus plazos y automatismos, y los macroestados del expediente.</p>
+    </div>
+</div>
+
+@if (!_cargado)
+{
+    <p class="text-muted">Cargando…</p>
+}
+else if (!_puedeAdministrar)
+{
+    <div class="alert alert-warning" role="alert">No tenés permiso para administrar la configuración de este Estudio.</div>
+}
+else
+{
+    @if (_mensaje is not null)
+    {
+        <div class="alert @(_exito ? "alert-success" : "alert-danger")" role="status">@_mensaje</div>
+    }
+
+    <nav class="segmentado mb-4" aria-label="Catálogo a configurar">
+        <button class="@(_vista == Vista.Etapas ? "activo" : "")" @onclick="() => CambiarVista(Vista.Etapas)">
+            Etapas <span class="pastilla gris ms-1">@_etapas.Count</span>
+        </button>
+        <button class="@(_vista == Vista.Instancias ? "activo" : "")" @onclick="() => CambiarVista(Vista.Instancias)">
+            Instancias <span class="pastilla gris ms-1">@_instancias.Count</span>
+        </button>
+    </nav>
+
+    @if (_vista == Vista.Etapas)
+    {
+        <div class="columnas">
+            <div class="principal">
+                <section class="tarjeta" aria-labelledby="titulo-etapas">
+                    <div class="cabecera-seccion">
+                        <span class="icono-tono tono-azul"><Icono Nombre="linea" Tamano="18" Grosor="2" /></span>
+                        <h2 id="titulo-etapas">Etapas del trámite</h2>
+                        <div class="mini-segmentado">
+                            <button class="@(_flujo == Flujos.Principal ? "activo" : "")"
+                                    @onclick="() => CambiarFlujo(Flujos.Principal)">Principal</button>
+                            <button class="@(_flujo == Flujos.Cautelar ? "activo" : "")"
+                                    @onclick="() => CambiarFlujo(Flujos.Cautelar)">Cautelar</button>
+                        </div>
+                    </div>
+
+                    @if (EtapasDelFlujo.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No hay etapas en este flujo. Creá la primera desde el panel de la derecha.</p>
+                    }
+                    else
+                    {
+                        <div class="tabla-contenedor">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Etapa</th><th>Orden</th><th>Instancia</th><th>Plazo</th><th>Automatismos</th>
+                                        <th>Uso</th><th>Estado</th><th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var e in PaginaEtapas)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="principal-celda">@e.Nombre</span>
+                                                <span class="secundario">
+                                                    @(e.Codigo is not null ? $"cód. {e.Codigo}" : "sin código")
+                                                    @if (e.EsDiligencia)
+                                                    {
+                                                        <text> · diligencia</text>
+                                                    }
+                                                </span>
+                                            </td>
+                                            <td class="nro">@(e.Orden?.ToString() ?? "—")</td>
+                                            <td>
+                                                @if (e.Instancia is not null)
+                                                {
+                                                    <span class="pastilla celeste">@e.Instancia</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (e.Dias is int d)
+                                                {
+                                                    <span>@d @(d == 1 ? "día" : "días")</span>
+                                                    <span class="secundario">@(e.DiasHabiles ? "hábiles" : "corridos")</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">sin plazo</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!TieneAutomatismos(e))
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                                else
+                                                {
+                                                    @if (e.GeneraTarea)
+                                                    {
+                                                        <span class="pastilla verde me-1 mb-1" title="@Procu360.Infraestructura.Configuracion.TareaPara.Nombre(e.TareaParaUsuarios)">Genera tarea</span>
+                                                    }
+                                                    @if (e.PasaSiguienteAutomatica)
+                                                    {
+                                                        <span class="pastilla cian me-1 mb-1" title="Pasa a @NombreEtapa(e.EtapaSiguienteId)">Paso automático</span>
+                                                    }
+                                                    @if (e.CortaPerencion)
+                                                    {
+                                                        <span class="pastilla ambar me-1 mb-1">Corta perención</span>
+                                                    }
+                                                    @if (e.Interrumpe)
+                                                    {
+                                                        <span class="pastilla gris me-1 mb-1">Interrumpe</span>
+                                                    }
+                                                }
+                                            </td>
+                                            <td class="nro" title="Registros en expedientes">@e.Registros</td>
+                                            <td>
+                                                @if (e.EsDeSistema)
+                                                {
+                                                    <span class="pastilla azul" title="Hito del sistema: la usa el motor">Sistema</span>
+                                                }
+                                                else if (e.Activa)
+                                                {
+                                                    <span class="pastilla verde">Activa</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="pastilla gris">Inactiva</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditarEtapa(e)">Editar</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <Paginador Total="EtapasDelFlujo.Count" Pagina="_paginaEtapas" Paginas="PaginasEtapas" Tamanio="_tamanio"
+                                   IrAPagina="p => _paginaEtapas = p" CambiarTamanio="CambiarTamanio" />
+                    }
+                </section>
+            </div>
+
+            <div class="lateral">
+                <section class="tarjeta panel-accion" aria-labelledby="titulo-form-etapa">
+                    <div class="cabecera-seccion">
+                        <span class="icono-tono tono-azul">
+                            <Icono Nombre="@(_etapaEditando is null ? "mas" : "nota")" Tamano="18" Grosor="2.2" />
+                        </span>
+                        <h2 id="titulo-form-etapa">@(_etapaEditando is null ? "Nueva etapa" : "Editar etapa")</h2>
+                    </div>
+
+                    @if (_etapaEditando is { EsDeSistema: true })
+                    {
+                        <div class="alert alert-secondary py-2 small" role="note">
+                            Es un hito del sistema: podés cambiarle el nombre y los plazos, pero no desactivarla.
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label small" for="e-nombre">Nombre</label>
+                        <input id="e-nombre" class="form-control form-control-sm" maxlength="100" @bind="_eNombre" />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-7">
+                            <label class="form-label small" for="e-flujo">Flujo</label>
+                            <select id="e-flujo" class="form-select form-select-sm" @bind="_eFlujo" @bind:after="AlCambiarFlujoForm">
+                                <option value="1">Principal</option>
+                                <option value="2">Cautelar</option>
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small" for="e-orden">Orden</label>
+                            <input id="e-orden" class="form-control form-control-sm" type="number" min="0" @bind="_eOrden" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="e-codigo">Código</label>
+                        <input id="e-codigo" class="form-control form-control-sm" maxlength="20" @bind="_eCodigo" />
+                    </div>
+
+                    @* La instancia la define la etapa principal: al registrarla, el expediente pasa a ese macroestado. *@
+                    @if (_eFlujo == Flujos.Principal)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small" for="e-instancia">Instancia del expediente</label>
+                            <select id="e-instancia" class="form-select form-select-sm" @bind="_eInstanciaId">
+                                <option value="0">Elegí…</option>
+                                @foreach (var i in _instancias.Where(x => x.Activa))
+                                {
+                                    <option value="@i.Id">@i.Nombre</option>
+                                }
+                            </select>
+                            <div class="form-text">Al registrar esta etapa, el expediente pasa a esta instancia.</div>
+                        </div>
+                    }
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small" for="e-dias">Plazo en días</label>
+                            <input id="e-dias" class="form-control form-control-sm" type="number" min="0" max="3650" @bind="_eDias" />
+                        </div>
+                        <div class="col-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="e-habiles" @bind="_eDiasHabiles" />
+                                <label class="form-check-label small" for="e-habiles">Días hábiles</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="rotulo-grupo">Clasificación</p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="e-diligencia" @bind="_eEsDiligencia" />
+                        <label class="form-check-label small" for="e-diligencia">Es diligencia (cédula u oficio)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="e-monitorio" @bind="_eEsMonitorio" />
+                        <label class="form-check-label small" for="e-monitorio">Es del juicio monitorio</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="e-ejecucion" @bind="_eEsEjecucion" />
+                        <label class="form-check-label small" for="e-ejecucion">Es de ejecución de sentencia</label>
+                    </div>
+
+                    <p class="rotulo-grupo">Perención</p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="e-corta" @bind="_eCortaPerencion" />
+                        <label class="form-check-label small" for="e-corta">Corta la perención</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="e-interrumpe" @bind="_eInterrumpe" />
+                        <label class="form-check-label small" for="e-interrumpe">Interrumpe el plazo</label>
+                    </div>
+
+                    <p class="rotulo-grupo">Encadenamiento</p>
+                    <div class="mb-3">
+                        <label class="form-label small" for="e-anterior">Etapa anterior</label>
+                        <select id="e-anterior" class="form-select form-select-sm" @bind="_eAnteriorId">
+                            <option value="0">Sin definir</option>
+                            @foreach (var o in EtapasParaEncadenar)
+                            {
+                                <option value="@o.Id">@o.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="e-siguiente">Etapa siguiente</label>
+                        <select id="e-siguiente" class="form-select form-select-sm" @bind="_eSiguienteId">
+                            <option value="0">Sin definir</option>
+                            @foreach (var o in EtapasParaEncadenar)
+                            {
+                                <option value="@o.Id">@o.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="e-automatica" @bind="_ePasaAutomatica"
+                               disabled="@(_eSiguienteId == 0)" />
+                        <label class="form-check-label small" for="e-automatica">
+                            Pasar a la siguiente automáticamente
+                            @if (_eSiguienteId == 0)
+                            {
+                                <span class="d-block form-text mt-0">Elegí antes la etapa siguiente.</span>
+                            }
+                        </label>
+                    </div>
+
+                    <p class="rotulo-grupo">Tareas</p>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="e-tarea" @bind="_eGeneraTarea" />
+                        <label class="form-check-label small" for="e-tarea">Generar una tarea al registrarla</label>
+                    </div>
+                    @if (_eGeneraTarea)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small" for="e-notificar">Asignar la tarea</label>
+                            <select id="e-notificar" class="form-select form-select-sm" @bind="_eTareaPara">
+                                <option value="1">Al responsable del expediente</option>
+                                <option value="2">A usuarios seleccionados</option>
+                                <option value="3">A todos</option>
+                            </select>
+                        </div>
+                    }
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="e-activa" @bind="_eActiva"
+                               disabled="@(_etapaEditando is { EsDeSistema: true })" />
+                        <label class="form-check-label small" for="e-activa">Activa</label>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-grow-1" @onclick="GuardarEtapaAsync">
+                            @(_etapaEditando is null ? "Crear etapa" : "Guardar cambios")
+                        </button>
+                        @if (_etapaEditando is not null)
+                        {
+                            <button class="btn btn-outline-secondary" @onclick="CancelarEtapa">Cancelar</button>
+                        }
+                    </div>
+                    <p class="form-text mb-0 mt-3">Las etapas no se borran: se desactivan, para no perder el historial de los expedientes.</p>
+                </section>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="columnas">
+            <div class="principal">
+                <section class="tarjeta" aria-labelledby="titulo-instancias">
+                    <div class="cabecera-seccion">
+                        <span class="icono-tono tono-celeste"><Icono Nombre="resumen" Tamano="18" Grosor="2" /></span>
+                        <h2 id="titulo-instancias">Instancias del expediente</h2>
+                    </div>
+
+                    @if (_instancias.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No hay instancias cargadas.</p>
+                    }
+                    else
+                    {
+                        <div class="tabla-contenedor">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Instancia</th><th>Orden</th><th>Características</th><th>Expedientes</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var i in _instancias)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="principal-celda d-inline-flex align-items-center gap-2">
+                                                    @if (i.Color is not null)
+                                                    {
+                                                        <span class="muestra-color" style="background: @i.Color" aria-hidden="true"></span>
+                                                    }
+                                                    @i.Nombre
+                                                </span>
+                                            </td>
+                                            <td class="nro">@(i.Orden?.ToString() ?? "—")</td>
+                                            <td>
+                                                @if (i.Perime)
+                                                {
+                                                    <span class="pastilla ambar me-1">Perime</span>
+                                                }
+                                                @if (i.EsBaja)
+                                                {
+                                                    <span class="pastilla gris me-1">Es baja</span>
+                                                }
+                                                @if (!i.Perime && !i.EsBaja)
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td class="nro">@i.Expedientes</td>
+                                            <td>
+                                                <span class="pastilla @(i.Activa ? "verde" : "gris")">@(i.Activa ? "Activa" : "Inactiva")</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditarInstancia(i)">Editar</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </section>
+            </div>
+
+            <div class="lateral">
+                <section class="tarjeta panel-accion" aria-labelledby="titulo-form-instancia">
+                    <div class="cabecera-seccion">
+                        <span class="icono-tono tono-celeste">
+                            <Icono Nombre="@(_instanciaEditando is null ? "mas" : "nota")" Tamano="18" Grosor="2.2" />
+                        </span>
+                        <h2 id="titulo-form-instancia">@(_instanciaEditando is null ? "Nueva instancia" : "Editar instancia")</h2>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small" for="i-nombre">Nombre</label>
+                        <input id="i-nombre" class="form-control form-control-sm" maxlength="50" @bind="_iNombre" />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-7">
+                            <label class="form-label small" for="i-color">Color</label>
+                            <input id="i-color" class="form-control form-control-sm" type="color" @bind="_iColor" />
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small" for="i-orden">Orden</label>
+                            <input id="i-orden" class="form-control form-control-sm" type="number" min="0" @bind="_iOrden" />
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="i-perime" @bind="_iPerime" />
+                        <label class="form-check-label small" for="i-perime">En esta instancia corre la perención</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="i-baja" @bind="_iEsBaja" />
+                        <label class="form-check-label small" for="i-baja">Es un estado de baja (cerrado)</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="i-activa" @bind="_iActiva" />
+                        <label class="form-check-label small" for="i-activa">Activa</label>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-grow-1" @onclick="GuardarInstanciaAsync">
+                            @(_instanciaEditando is null ? "Crear instancia" : "Guardar cambios")
+                        </button>
+                        @if (_instanciaEditando is not null)
+                        {
+                            <button class="btn btn-outline-secondary" @onclick="CancelarInstancia">Cancelar</button>
+                        }
+                    </div>
+                    <p class="form-text mb-0 mt-3">Una instancia con expedientes no se puede desactivar: primero hay que moverlos.</p>
+                </section>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private enum Vista { Etapas, Instancias }
+
+    private static class Flujos
+    {
+        public const byte Principal = 1;
+        public const byte Cautelar = 2;
+    }
+
+    private bool _cargado;
+    private bool _puedeAdministrar;
+    private string? _mensaje;
+    private bool _exito;
+    private Vista _vista = Vista.Etapas;
+    private byte _flujo = Flujos.Principal;
+    private int _paginaEtapas = 1;
+    private int _tamanio = 25;
+
+    private IReadOnlyList<Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo> _etapas = [];
+    private IReadOnlyList<Procu360.Infraestructura.Configuracion.FilaInstancia> _instancias = [];
+
+    // Formulario de etapa
+    private Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo? _etapaEditando;
+    private string? _eNombre, _eCodigo;
+    private byte _eFlujo = Flujos.Principal;
+    private int? _eOrden, _eDias;
+    private bool _eDiasHabiles = true, _eInterrumpe, _eCortaPerencion, _eEsMonitorio, _eEsEjecucion, _eEsDiligencia;
+    private int _eAnteriorId, _eSiguienteId, _eInstanciaId;
+    private bool _ePasaAutomatica, _eGeneraTarea, _eActiva = true;
+    private byte _eTareaPara = Procu360.Infraestructura.Configuracion.TareaPara.Responsable;
+
+    // Formulario de instancia
+    private Procu360.Infraestructura.Configuracion.FilaInstancia? _instanciaEditando;
+    private string? _iNombre;
+    private string _iColor = "#1D4ED8";
+    private int? _iOrden;
+    private bool _iPerime, _iEsBaja, _iActiva = true;
+
+    private IReadOnlyList<Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo> EtapasDelFlujo =>
+        _etapas.Where(e => e.Flujo == _flujo).ToList();
+
+    private int PaginasEtapas => Math.Max(1, (int)Math.Ceiling(EtapasDelFlujo.Count / (double)_tamanio));
+
+    private IEnumerable<Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo> PaginaEtapas =>
+        EtapasDelFlujo.Skip((Math.Clamp(_paginaEtapas, 1, PaginasEtapas) - 1) * _tamanio).Take(_tamanio);
+
+    /// <summary>Solo etapas del mismo flujo que el del formulario, y nunca la que se está editando.</summary>
+    private IEnumerable<Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo> EtapasParaEncadenar =>
+        _etapas.Where(e => e.Flujo == _eFlujo && e.Id != _etapaEditando?.Id);
+
+    private static bool TieneAutomatismos(Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo e) =>
+        e.GeneraTarea || e.PasaSiguienteAutomatica || e.CortaPerencion || e.Interrumpe;
+
+    private string NombreEtapa(int? id) => _etapas.FirstOrDefault(e => e.Id == id)?.Nombre ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        SesionContexto.Aplicar(estado.User, Contexto);
+        _puedeAdministrar = await Autorizacion.TieneAsync(Procu360.Dominio.Seguridad.Permisos.ConfiguracionAdministrar);
+        if (_puedeAdministrar) await CargarAsync();
+        _cargado = true;
+    }
+
+    private async Task CargarAsync()
+    {
+        _etapas = await Catalogo.ListarEtapasAsync();
+        _instancias = await Catalogo.ListarInstanciasAsync();
+    }
+
+    private void CambiarVista(Vista vista)
+    {
+        _vista = vista;
+        _mensaje = null;
+    }
+
+    private void CambiarFlujo(byte flujo)
+    {
+        _flujo = flujo;
+        _paginaEtapas = 1;
+    }
+
+    private void CambiarTamanio(int tamanio)
+    {
+        _tamanio = tamanio;
+        _paginaEtapas = 1;
+    }
+
+    /// <summary>
+    /// Al cambiar de flujo, el encadenamiento del otro flujo ya no vale, y solo el principal lleva instancia.
+    /// </summary>
+    private void AlCambiarFlujoForm()
+    {
+        _eAnteriorId = 0;
+        _eSiguienteId = 0;
+        _ePasaAutomatica = false;
+        if (_eFlujo != Flujos.Principal) _eInstanciaId = 0;
+    }
+
+    // ------------------------------------------------------------- etapas
+
+    private void EditarEtapa(Procu360.Infraestructura.Configuracion.FilaEtapaCatalogo e)
+    {
+        _etapaEditando = e;
+        _eNombre = e.Nombre;
+        _eCodigo = e.Codigo;
+        _eFlujo = e.Flujo;
+        _eOrden = e.Orden;
+        _eDias = e.Dias;
+        _eDiasHabiles = e.DiasHabiles;
+        _eInterrumpe = e.Interrumpe;
+        _eCortaPerencion = e.CortaPerencion;
+        _eEsMonitorio = e.EsMonitorio;
+        _eEsEjecucion = e.EsEjecucion;
+        _eEsDiligencia = e.EsDiligencia;
+        _eAnteriorId = e.EtapaAnteriorId ?? 0;
+        _eSiguienteId = e.EtapaSiguienteId ?? 0;
+        _eInstanciaId = e.InstanciaId ?? 0;
+        _ePasaAutomatica = e.PasaSiguienteAutomatica;
+        _eGeneraTarea = e.GeneraTarea;
+        _eTareaPara = e.TareaParaUsuarios == Procu360.Infraestructura.Configuracion.TareaPara.Ninguno
+            ? Procu360.Infraestructura.Configuracion.TareaPara.Responsable
+            : e.TareaParaUsuarios;
+        _eActiva = e.Activa;
+        _mensaje = null;
+    }
+
+    private void CancelarEtapa()
+    {
+        _etapaEditando = null;
+        LimpiarFormularioEtapa();
+        _mensaje = null;
+    }
+
+    private void LimpiarFormularioEtapa()
+    {
+        _eNombre = _eCodigo = null;
+        _eFlujo = _flujo;
+        _eOrden = _eDias = null;
+        _eDiasHabiles = true;
+        _eInterrumpe = _eCortaPerencion = _eEsMonitorio = _eEsEjecucion = _eEsDiligencia = false;
+        _eAnteriorId = _eSiguienteId = _eInstanciaId = 0;
+        _ePasaAutomatica = _eGeneraTarea = false;
+        _eTareaPara = Procu360.Infraestructura.Configuracion.TareaPara.Responsable;
+        _eActiva = true;
+    }
+
+    private async Task GuardarEtapaAsync()
+    {
+        var datos = new Procu360.Infraestructura.Configuracion.DatosEtapa(
+            _eFlujo, _eCodigo, _eNombre ?? string.Empty, _eOrden, _eDias, _eDiasHabiles, _eInterrumpe,
+            _eCortaPerencion, _eEsMonitorio, _eEsEjecucion, _eEsDiligencia,
+            _eAnteriorId == 0 ? null : _eAnteriorId, _eSiguienteId == 0 ? null : _eSiguienteId,
+            _ePasaAutomatica, _eGeneraTarea, _eTareaPara,
+            _eFlujo == Flujos.Principal && _eInstanciaId != 0 ? _eInstanciaId : null, _eActiva);
+
+        var r = _etapaEditando is { } e
+            ? await Catalogo.EditarEtapaAsync(e.Id, datos, e.Version)
+            : await Catalogo.CrearEtapaAsync(datos);
+
+        Informar(r, _etapaEditando is null ? "Etapa creada." : "Etapa actualizada.");
+        if (r.Exito)
+        {
+            _etapaEditando = null;
+            LimpiarFormularioEtapa();
+            await CargarAsync();
+        }
+    }
+
+    // ------------------------------------------------------------- instancias
+
+    private void EditarInstancia(Procu360.Infraestructura.Configuracion.FilaInstancia i)
+    {
+        _instanciaEditando = i;
+        _iNombre = i.Nombre;
+        _iColor = i.Color ?? "#1D4ED8";
+        _iOrden = i.Orden;
+        _iPerime = i.Perime;
+        _iEsBaja = i.EsBaja;
+        _iActiva = i.Activa;
+        _mensaje = null;
+    }
+
+    private void CancelarInstancia()
+    {
+        _instanciaEditando = null;
+        _iNombre = null;
+        _iColor = "#1D4ED8";
+        _iOrden = null;
+        _iPerime = _iEsBaja = false;
+        _iActiva = true;
+        _mensaje = null;
+    }
+
+    private async Task GuardarInstanciaAsync()
+    {
+        var datos = new Procu360.Infraestructura.Configuracion.DatosInstancia(
+            _iNombre ?? string.Empty, _iColor, _iPerime, _iEsBaja, _iOrden, _iActiva);
+
+        var r = _instanciaEditando is { } i
+            ? await Catalogo.EditarInstanciaAsync(i.Id, datos, i.Version)
+            : await Catalogo.CrearInstanciaAsync(datos);
+
+        Informar(r, _instanciaEditando is null ? "Instancia creada." : "Instancia actualizada.");
+        if (r.Exito)
+        {
+            CancelarInstancia();
+            await CargarAsync();
+        }
+    }
+
+    private void Informar(Procu360.Infraestructura.Seguridad.ResultadoOperacion r, string exito)
+    {
+        _exito = r.Exito;
+        _mensaje = r.Exito ? exito : r.Error;
+    }
+}

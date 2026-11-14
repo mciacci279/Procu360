@@ -46,6 +46,12 @@ public partial class Etapa
 
     public byte? HitoSistema { get; set; }
 
+    /// <summary>
+    /// Instancia a la que pasa el expediente al registrar esta etapa. Solo para el flujo principal:
+    /// las cautelares no mueven el macroestado (lo garantiza CK_conf_Etapa_4).
+    /// </summary>
+    public int? InstanciaId { get; set; }
+
     public bool Activa { get; set; }
 
     public Guid? LegadoId { get; set; }
@@ -79,6 +85,8 @@ public partial class Etapa
     public virtual ICollection<Etapa> InverseEtapa1 { get; set; } = new List<Etapa>();
 
     public virtual ICollection<Etapa> InverseEtapaNavigation { get; set; } = new List<Etapa>();
+
+    public virtual Instancia? Instancia { get; set; }
 
     public virtual ICollection<PlantillaEscrito> PlantillaEscrito { get; set; } = new List<PlantillaEscrito>();
 }

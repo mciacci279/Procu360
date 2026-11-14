@@ -45,7 +45,7 @@
             </NavLink>
         }
 
-        @if (_puedeInvitar || _puedeAdministrar)
+        @if (_puedeInvitar || _puedeAdministrar || _puedeConfigurar)
         {
             <div class="grupo texto">Administración</div>
             @if (_puedeInvitar)
@@ -61,6 +61,12 @@
                 </NavLink>
                 <NavLink class="item" href="estudio/roles" title="Roles y permisos">
                     <Icono Nombre="roles" /><span class="texto">Roles y permisos</span>
+                </NavLink>
+            }
+            @if (_puedeConfigurar)
+            {
+                <NavLink class="item" href="estudio/etapas" title="Etapas e instancias">
+                    <Icono Nombre="linea" /><span class="texto">Etapas e instancias</span>
                 </NavLink>
             }
         }
@@ -96,6 +102,7 @@
     private bool _logoSinTransicion;
     private bool _puedeInvitar;
     private bool _puedeAdministrar;
+    private bool _puedeConfigurar;
     private bool _puedeConsultarExpedientes;
     private bool _puedeConsultarNovedades;
     private bool _puedeConsultarTareas;
@@ -125,6 +132,7 @@
         var permisos = ambito.ServiceProvider.GetRequiredService<ServicioPermisos>();
         _puedeInvitar = await permisos.TieneAsync(Procu360.Dominio.Seguridad.Permisos.UsuariosCrear);
         _puedeAdministrar = await permisos.TieneAsync(Procu360.Dominio.Seguridad.Permisos.UsuariosAdministrar);
+        _puedeConfigurar = await permisos.TieneAsync(Procu360.Dominio.Seguridad.Permisos.ConfiguracionAdministrar);
         _puedeConsultarExpedientes = await permisos.TieneAsync("expedientes.consultar");
         _puedeConsultarNovedades = await permisos.TieneAsync("novedades.consultar");
         _puedeConsultarTareas = await permisos.TieneAsync("tareas.consultar");
@@ -148,6 +156,7 @@
 
         _referencia = DotNetObjectReference.Create(this);
         await _modulo.InvokeVoidAsync("registrarAtajo", _referencia);
+        await _modulo.InvokeVoidAsync("vigilarDesborde");
 
         // El acordeón del logo se muestra una vez por sesión del navegador; después aparece ya abierto.
         if (await _modulo.InvokeAsync<bool>("logoYaAnimado"))
