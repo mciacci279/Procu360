@@ -1,6 +1,9 @@
-@page "/expedientes"
+﻿@page "/expedientes"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Policy = "expedientes.consultar")]
 @inject Procu360.Infraestructura.Expedientes.ServicioBusquedaExpedientes Busqueda
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
 
 <PageTitle>Expedientes · Procu360</PageTitle>
 
@@ -75,7 +78,13 @@
     </div>
 </form>
 
-@if (_resultado is null)
+@if (_buscando && _resultado is null)
+{
+    <div class="tarjeta" aria-busy="true" aria-label="Buscando expedientes">
+        <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="6" Columnas="6" />
+    </div>
+}
+else if (_resultado is null)
 {
     <div class="tarjeta text-center py-5">
         <span class="icono-tono tono-azul mb-3" style="width: 52px; height: 52px; border-radius: 16px"><Icono Nombre="buscar" Tamano="24" Grosor="2" /></span>
@@ -93,6 +102,7 @@ else
         <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
     </div>
 
+    <ZonaCargando Cargando="_buscando" Texto="Buscando expedientes…">
     <div class="tabla-contenedor">
         <table class="table">
             <thead>
@@ -145,6 +155,7 @@ else
             </tbody>
         </table>
     </div>
+    </ZonaCargando>
 
     <Paginador Total="_resultado.Total" Pagina="_resultado.Pagina" Paginas="_resultado.Paginas" Tamanio="Tamanio"
                Enlace="p => Enlace(p, Tamanio)" EnlaceTamanio="t => Enlace(1, t)" />
@@ -171,24 +182,53 @@ else
 
     private int Tamanio => Paginador.Tamanios.Contains(Tam ?? 0) ? Tam!.Value : 25;
 
+    /// <summary>Clave de la búsqueda ya resuelta: evita repetir la consulta en cada redibujado.</summary>
+    private string? _buscada;
+    private bool _buscando;
+
+    private string ClaveBusqueda =>
+        $"{Q}|{Comitente}|{Instancia}|{Etapa}|{Historicas}|{SinMov}|{Bajas}|{Pagina ?? 1}|{Tamanio}";
+
+    /// <summary>Contexto del circuito: al ser interactiva, el middleware no alcanza.</summary>
     protected override async Task OnInitializedAsync()
     {
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
         _comitentes = await Busqueda.ComitentesAsync();
         _instancias = await Busqueda.InstanciasAsync();
         _etapas = await Busqueda.EtapasAsync();
+    }
 
-        if (!HayCriterio) return;
+    /// <summary>
+    /// La búsqueda corre después de dibujar: así los filtros y el esqueleto aparecen enseguida
+    /// y la espera se ve sobre la grilla, no sobre la navegación.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!HayCriterio || _buscada == ClaveBusqueda || _buscando) return;
 
-        _resultado = await Busqueda.BuscarAsync(new Procu360.Infraestructura.Expedientes.CriteriosBusqueda(
-            Texto: Q,
-            ComitenteId: Comitente,
-            InstanciaId: Instancia,
-            SinMovimiento: SinMov == true,
-            IncluirDadosDeBaja: Bajas == true,
-            Pagina: Pagina ?? 1,
-            TamanioPagina: Tamanio,
-            EtapaId: Etapa,
-            EtapasHistoricas: Historicas == true));
+        var clave = ClaveBusqueda;
+        _buscando = true;
+        StateHasChanged();
+        try
+        {
+            _resultado = await Busqueda.BuscarAsync(new Procu360.Infraestructura.Expedientes.CriteriosBusqueda(
+                Texto: Q,
+                ComitenteId: Comitente,
+                InstanciaId: Instancia,
+                SinMovimiento: SinMov == true,
+                IncluirDadosDeBaja: Bajas == true,
+                Pagina: Pagina ?? 1,
+                TamanioPagina: Tamanio,
+                EtapaId: Etapa,
+                EtapasHistoricas: Historicas == true));
+            _buscada = clave;
+        }
+        finally
+        {
+            _buscando = false;
+            StateHasChanged();
+        }
     }
 
     private string Enlace(int pagina, int tamanio)

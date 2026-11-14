@@ -1,0 +1,75 @@
+@* Marcador de carga con la forma del contenido que viene: evita el salto cuando llegan los datos.
+   Es decorativo, así que se oculta a los lectores de pantalla; quien anuncia la espera es el contenedor. *@
+
+<div class="esqueleto @(Clase ?? "")" aria-hidden="true">
+    @switch (Tipo)
+    {
+        case TipoEsqueleto.Tabla:
+            <div class="esq-tabla">
+                @for (var fila = 0; fila < Filas; fila++)
+                {
+                    <div class="esq-fila">
+                        @for (var columna = 0; columna < Columnas; columna++)
+                        {
+                            <span class="esq-bloque" style="width: @AnchoCelda(fila, columna)"></span>
+                        }
+                    </div>
+                }
+            </div>
+            break;
+
+        case TipoEsqueleto.Tarjetas:
+            <div class="esq-tarjetas">
+                @for (var i = 0; i < Filas; i++)
+                {
+                    <div class="esq-tarjeta">
+                        <span class="esq-bloque esq-titulo"></span>
+                        <span class="esq-bloque" style="width: 85%"></span>
+                        <span class="esq-bloque" style="width: 60%"></span>
+                    </div>
+                }
+            </div>
+            break;
+
+        case TipoEsqueleto.Lista:
+            <div class="esq-lista">
+                @for (var i = 0; i < Filas; i++)
+                {
+                    <div class="esq-renglon">
+                        <span class="esq-bloque esq-circulo"></span>
+                        <span class="esq-bloque" style="width: @(70 - (i % 3) * 12)%"></span>
+                    </div>
+                }
+            </div>
+            break;
+
+        default:
+            <div class="esq-lista">
+                @for (var i = 0; i < Filas; i++)
+                {
+                    <span class="esq-bloque" style="width: @(90 - (i % 4) * 15)%"></span>
+                }
+            </div>
+            break;
+    }
+</div>
+
+@code {
+    public enum TipoEsqueleto { Texto, Tabla, Tarjetas, Lista }
+
+    [Parameter] public TipoEsqueleto Tipo { get; set; } = TipoEsqueleto.Texto;
+    [Parameter] public int Filas { get; set; } = 5;
+    [Parameter] public int Columnas { get; set; } = 4;
+    [Parameter] public string? Clase { get; set; }
+
+    /// <summary>
+    /// Anchos variados y estables: un patrón fijo según la posición, para que no "bailen" en cada redibujado
+    /// y se parezcan a datos reales en vez de a una grilla perfecta.
+    /// </summary>
+    private static string AnchoCelda(int fila, int columna)
+    {
+        int[] patron = [70, 95, 55, 80, 62, 88];
+        var valor = patron[(fila * 2 + columna) % patron.Length];
+        return $"{valor}%";
+    }
+}

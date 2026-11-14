@@ -1,5 +1,5 @@
-@page "/estudio/invitaciones"
-@rendermode InteractiveServer
+﻿@page "/estudio/invitaciones"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @inject AuthenticationStateProvider AutenticacionProveedor
 @inject ContextoEstudio Contexto
@@ -22,7 +22,9 @@
 
 @if (!_cargado)
 {
-    <p class="text-muted">Cargando…</p>
+    <div class="tarjeta" aria-busy="true" aria-label="Cargando las invitaciones">
+        <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Lista" Filas="4" />
+    </div>
 }
 else if (!_puedeAdministrar)
 {
@@ -145,8 +147,19 @@ else
         var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
         SesionContexto.Aplicar(estado.User, Contexto);
         _puedeAdministrar = await Autorizacion.TieneAsync(Procu360.Dominio.Seguridad.Permisos.UsuariosAdministrar);
-        if (_puedeAdministrar) await CargarAsync();
+        if (!_puedeAdministrar) _cargado = true;
+    }
+
+    /// <summary>
+    /// Los datos se piden después del primer dibujado: así la pantalla aparece enseguida con su
+    /// esqueleto, en vez de quedar en blanco mientras llega la consulta.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!primerRender || !_puedeAdministrar || _cargado) return;
+        await CargarAsync();
         _cargado = true;
+        StateHasChanged();
     }
 
     private async Task CargarAsync() => _membresias = await Administracion.ListarMembresiasAsync();

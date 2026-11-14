@@ -1,5 +1,5 @@
-@page "/novedades"
-@rendermode InteractiveServer
+﻿@page "/novedades"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Policy = "novedades.consultar")]
 @inject AuthenticationStateProvider AutenticacionProveedor
 @inject ContextoEstudio Contexto
@@ -31,7 +31,9 @@
 
 @if (_resultado is null)
 {
-    <p class="text-muted">Cargando…</p>
+    <div class="tarjeta" aria-busy="true" aria-label="Cargando novedades">
+        <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Lista" Filas="5" />
+    </div>
 }
 else if (_resultado.Total == 0)
 {

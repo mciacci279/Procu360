@@ -1,5 +1,5 @@
-@page "/expedientes/{Id:long}"
-@rendermode InteractiveServer
+﻿@page "/expedientes/{Id:long}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Policy = "expedientes.consultar")]
 @inject Procu360.Infraestructura.Expedientes.FichaExpedienteServicio Servicio
 @inject Procu360.Infraestructura.Expedientes.ServicioEdicionExpediente Edicion
@@ -12,13 +12,44 @@
 
 <PageTitle>Expediente @(_encabezado?.NroOrden.ToString("D5") ?? "") · Procu360</PageTitle>
 
-@if (!_visible)
+@if (_idCargado is null)
 {
-    @if (_idCargado is not null)
-    {
-        <div class="alert alert-secondary" role="status">No encontramos ese expediente en tu alcance.</div>
-        <a href="/expedientes">Volver a expedientes</a>
-    }
+    @* Todavía no se sabe si el expediente existe: se muestra la estructura de la ficha
+       para que la pantalla no quede en blanco mientras llega el encabezado. *@
+    <div aria-busy="true" aria-label="Abriendo el expediente">
+        <span class="volver volver-esqueleto"><Icono Nombre="volver" Tamano="16" Grosor="2" /> Volver a resultados</span>
+
+        <section class="tarjeta cabecera-expediente">
+            <div style="min-width: 0; flex: 1 1 520px">
+                <span class="esq-bloque" style="width: 260px; height: 28px; border-radius: 9px"></span>
+                <div class="meta-encabezado">
+                    @foreach (var rotulo in new[] { "Nro. cuenta", "Comitente", "Demandado", "Concepto" })
+                    {
+                        <div class="dato">
+                            <span class="rotulo">@rotulo</span>
+                            <span class="esq-bloque" style="width: 80%; margin-top: 4px"></span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <nav class="pestanas" aria-hidden="true">
+            @foreach (var (_, nombre, icono) in Pestanas)
+            {
+                <span class="pestana"><Icono Nombre="@icono" Tamano="18" />@nombre</span>
+            }
+        </nav>
+
+        <div class="grilla-ficha">
+            <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tarjetas" Filas="4" />
+        </div>
+    </div>
+}
+else if (!_visible)
+{
+    <div class="alert alert-secondary" role="status">No encontramos ese expediente en tu alcance.</div>
+    <a href="/expedientes">Volver a expedientes</a>
 }
 else if (_encabezado is not null)
 {
@@ -138,7 +169,9 @@ else if (_encabezado is not null)
         case "personas":
             @if (_personas is null)
             {
-                <p class="text-muted">Cargando…</p>
+                <section class="tarjeta" aria-busy="true" aria-label="Cargando personas del expediente">
+                    <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="4" Columnas="4" />
+                </section>
             }
             else
             {
@@ -151,7 +184,9 @@ else if (_encabezado is not null)
         case "periodos":
             @if (_periodos is null)
             {
-                <p class="text-muted">Cargando…</p>
+                <section class="tarjeta" aria-busy="true" aria-label="Cargando períodos adeudados">
+                    <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="5" Columnas="5" />
+                </section>
             }
             else
             {
@@ -177,7 +212,9 @@ else if (_encabezado is not null)
                 }
                 @if (_tareas is null)
                 {
-                    <p class="text-muted mb-0">Cargando…</p>
+                    <div aria-busy="true" aria-label="Cargando tareas del expediente">
+                        <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="3" Columnas="4" />
+                    </div>
                 }
                 else if (_tareas.Count == 0)
                 {
@@ -228,7 +265,9 @@ else if (_encabezado is not null)
         default:
             @if (_resumen is null)
             {
-                <p class="text-muted">Cargando…</p>
+                <div class="grilla-ficha" aria-busy="true" aria-label="Cargando el resumen del expediente">
+                    <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tarjetas" Filas="4" />
+                </div>
             }
             else
             {
@@ -334,6 +373,8 @@ else if (_encabezado is not null)
     private bool _puedeEditarTareas;
     /// <summary>False cuando algo cambió el expediente desde otra pestaña y hay que releer el resumen.</summary>
     private bool _resumenAlDia;
+    /// <summary>Evita que los redibujados disparen otra carga mientras una está en curso.</summary>
+    private bool _cargandoFicha;
     private string? _mensajeTareas;
     private bool _exitoTareas;
     private int _tamanioFicha = 25;
@@ -367,29 +408,63 @@ else if (_encabezado is not null)
     /// Se ejecuta también cuando cambia ?tab= sin salir de la página: Blazor reutiliza el componente y no
     /// vuelve a llamar a OnInitializedAsync, así que cada pestaña carga sus datos acá.
     /// </summary>
-    protected override async Task OnParametersSetAsync()
+    /// <summary>
+    /// Toda la carga va después del dibujado: así la ficha aparece enseguida con su esqueleto
+    /// en vez de dejar la pantalla en blanco mientras llegan el encabezado y los datos.
+    /// Se ejecuta en cada render porque también cubre el cambio de pestaña (?tab=), que no
+    /// vuelve a crear el componente.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool primerRender)
     {
-        if (_idCargado != Id)
-        {
-            _visible = await Servicio.VisibleAsync(Id);
-            _encabezado = _visible ? await Servicio.EncabezadoAsync(Id) : null;
-            _idCargado = Id;
-            _pestanaCargada = null;
-            _paginaTareas = 1;
-        }
-        // El resumen se vuelve a leer si quedó viejo (por ejemplo, tras registrar una etapa en otra pestaña).
-        var yaCargada = _pestanaCargada == Pestana && (Pestana != "resumen" || _resumenAlDia);
-        if (!_visible || yaCargada) return;
+        if (_cargandoFicha) return;
 
-        switch (Pestana)
+        var pestanaPendiente = _visible
+            && !(_pestanaCargada == Pestana && (Pestana != "resumen" || _resumenAlDia));
+        if (_idCargado == Id && !pestanaPendiente) return;
+
+        _cargandoFicha = true;
+        try
         {
-            case "personas": await CargarPersonasAsync(); break;
-            case "periodos": _periodos = await PeriodosServicio.ListarAsync(Id); break;
-            case "etapas": break; // la pestaña carga sus datos en EtapasExpediente
-            case "tareas": _tareas = await Servicio.TareasAsync(Id); _mensajeTareas = null; break;
-            default: await CargarResumenAsync(); break;
+            if (_idCargado != Id)
+            {
+                _visible = await Servicio.VisibleAsync(Id);
+                _encabezado = _visible ? await Servicio.EncabezadoAsync(Id) : null;
+                _idCargado = Id;
+                _pestanaCargada = null;
+                _paginaTareas = 1;
+                StateHasChanged();
+                if (!_visible) return;
+            }
+
+            if (_pestanaCargada == Pestana && (Pestana != "resumen" || _resumenAlDia)) return;
+
+            // Los datos de la pestaña anterior ya no valen: se vacían para que se vea el esqueleto
+            // de la nueva en vez de contenido que no corresponde.
+            switch (Pestana)
+            {
+                case "personas": _personas = null; break;
+                case "periodos": _periodos = null; break;
+                case "tareas": _tareas = null; break;
+                case "etapas": break;
+                default: _resumen = null; break;
+            }
+            StateHasChanged();
+
+            switch (Pestana)
+            {
+                case "personas": await CargarPersonasAsync(); break;
+                case "periodos": _periodos = await PeriodosServicio.ListarAsync(Id); break;
+                case "etapas": break; // la pestaña carga sus datos en EtapasExpediente
+                case "tareas": _tareas = await Servicio.TareasAsync(Id); _mensajeTareas = null; break;
+                default: await CargarResumenAsync(); break;
+            }
+            _pestanaCargada = Pestana;
         }
-        _pestanaCargada = Pestana;
+        finally
+        {
+            _cargandoFicha = false;
+            StateHasChanged();
+        }
     }
 
     /// <summary>Consultas en secuencia: los componentes de edición no consultan la base por su cuenta.</summary>

@@ -1,0 +1,67 @@
+@* Envuelve contenido que se recarga: mientras llegan los datos lo difumina y muestra el indicador encima.
+   El velo recién aparece pasados unos milisegundos, así una consulta rápida no produce un parpadeo. *@
+@implements IDisposable
+
+<div class="zona-cargando @(_mostrar ? "ocupada" : "")">
+    @ChildContent
+
+    @if (_mostrar)
+    {
+        <div class="velo-carga" role="status" aria-live="polite">
+            <div class="indicador-carga">
+                <Cargador />
+                <span class="texto-carga">@Texto</span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Espera antes de mostrar el velo: por debajo de esto, la carga pasa desapercibida.</summary>
+    private const int DemoraMs = 250;
+
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Cargando { get; set; }
+    [Parameter] public string Texto { get; set; } = "Buscando información…";
+
+    private bool _mostrar;
+    private CancellationTokenSource? _espera;
+
+    protected override void OnParametersSet()
+    {
+        if (Cargando)
+        {
+            if (_mostrar || _espera is not null) return;
+            _espera = new CancellationTokenSource();
+            _ = MostrarConDemoraAsync(_espera.Token);
+        }
+        else
+        {
+            Cancelar();
+            _mostrar = false;
+        }
+    }
+
+    private async Task MostrarConDemoraAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(DemoraMs, ct);
+        }
+        catch (TaskCanceledException)
+        {
+            return;   // los datos llegaron antes: no se muestra nada
+        }
+        _mostrar = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Cancelar()
+    {
+        _espera?.Cancel();
+        _espera?.Dispose();
+        _espera = null;
+    }
+
+    public void Dispose() => Cancelar();
+}

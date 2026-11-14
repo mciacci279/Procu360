@@ -1,4 +1,4 @@
-@rendermode InteractiveServer
+﻿@rendermode InteractiveServer
 @inject AuthenticationStateProvider AutenticacionProveedor
 @inject ContextoEstudio Contexto
 @inject Procu360.Infraestructura.Etapas.ServicioEtapas Etapas
@@ -30,7 +30,9 @@
 
     @if (_filas is null)
     {
-        <p class="text-muted mb-0">Cargando…</p>
+        <div aria-busy="true" aria-label="Cargando la línea de tiempo de etapas">
+            <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Lista" Filas="4" />
+        </div>
     }
     else if (_filas.Count == 0)
     {
@@ -92,8 +94,15 @@
         var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
         Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
         _puedeEditar = await Autorizacion.TieneAsync("expedientes.editar");
+    }
+
+    /// <summary>La línea de tiempo se carga tras el primer dibujado, con el esqueleto a la vista.</summary>
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!primerRender || _filas is not null) return;
         _catalogo = _puedeEditar ? await Etapas.CatalogoAsync() : [];
         await CargarAsync();
+        StateHasChanged();
     }
 
     private async Task CargarAsync() => _filas = await Etapas.ListarAsync(ExpedienteId);

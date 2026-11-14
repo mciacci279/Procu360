@@ -1,0 +1,14 @@
+@* Indicador de carga: dos arcos concéntricos que giran en sentidos opuestos, en los azules de la marca.
+   Decorativo: quien anuncia la espera es el contenedor con aria-live. *@
+
+<svg class="cargador" width="@Tamano" height="@Tamano" viewBox="0 0 44 44" aria-hidden="true">
+    <circle class="car-pista" cx="22" cy="22" r="18" fill="none" stroke-width="3.5" />
+    <circle class="car-arco car-externo" cx="22" cy="22" r="18" fill="none" stroke-width="3.5"
+            stroke-linecap="round" />
+    <circle class="car-arco car-interno" cx="22" cy="22" r="10" fill="none" stroke-width="3"
+            stroke-linecap="round" />
+</svg>
+
+@code {
+    [Parameter] public int Tamano { get; set; } = 44;
+}

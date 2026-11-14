@@ -1,5 +1,5 @@
-@page "/tareas"
-@rendermode InteractiveServer
+﻿@page "/tareas"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Policy = "tareas.consultar")]
 @inject AuthenticationStateProvider AutenticacionProveedor
 @inject ContextoEstudio Contexto
@@ -40,7 +40,9 @@
 
         @if (_resultado is null)
         {
-            <p class="text-muted">Cargando…</p>
+            <div class="tarjeta" aria-busy="true" aria-label="Cargando tareas">
+                <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="6" Columnas="5" />
+            </div>
         }
         else if (_resultado.Total == 0)
         {
@@ -55,6 +57,7 @@
                 <span><strong>@_resultado.Total</strong> tareas</span>
                 <span>Página @_resultado.Pagina de @_resultado.Paginas</span>
             </div>
+            <ZonaCargando Cargando="_cargando" Texto="Actualizando tareas…">
             <div class="tabla-contenedor">
                 <table class="table">
                     <thead><tr><th>Vence</th><th>Tarea</th><th>Expediente</th><th>Responsable</th><th class="text-end">Estado</th></tr></thead>
@@ -117,6 +120,7 @@
                     </tbody>
                 </table>
             </div>
+            </ZonaCargando>
 
             <Paginador Total="_resultado.Total" Pagina="_resultado.Pagina" Paginas="_resultado.Paginas" Tamanio="_tamanio"
                        IrAPagina="IrAsync" CambiarTamanio="CambiarTamanioAsync" />
@@ -190,7 +194,25 @@
         await CargarAsync();
     }
 
-    private async Task CargarAsync() => _resultado = await Servicio.ListarAsync(_filtro, _pagina, _tamanio);
+    private bool _cargando;
+
+    /// <summary>
+    /// Marca la espera y redibuja antes de consultar: si no, Blazor dibuja recién al volver y el velo
+    /// no llega a verse nunca.
+    /// </summary>
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        StateHasChanged();
+        try
+        {
+            _resultado = await Servicio.ListarAsync(_filtro, _pagina, _tamanio);
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
 
     private async Task CambiarFiltroAsync(Procu360.Infraestructura.Tareas.FiltroTareas filtro)
     {

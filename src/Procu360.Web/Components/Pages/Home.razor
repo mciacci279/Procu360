@@ -1,6 +1,9 @@
 ﻿@page "/"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @inject Procu360.Infraestructura.MiDia.ServicioMiDia MiDia
+@inject AuthenticationStateProvider AutenticacionProveedor
+@inject ContextoEstudio Contexto
 
 <PageTitle>Mi día · Procu360</PageTitle>
 
@@ -13,7 +16,9 @@
 
 @if (_resumen is null)
 {
-    <p class="text-muted">Cargando…</p>
+    <div aria-busy="true" aria-label="Cargando tu resumen del día">
+        <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tarjetas" Filas="3" />
+    </div>
 }
 else if (_resumen.SinAlcance)
 {
@@ -170,9 +175,21 @@ else
         }
     }
 
+    /// <summary>
+    /// El resumen se pide después del primer dibujado: la pantalla aparece enseguida con su esqueleto.
+    /// </summary>
+    /// <summary>Contexto del circuito: al ser interactiva, el middleware solo corre en la primera request.</summary>
     protected override async Task OnInitializedAsync()
     {
-        // El middleware ya fijó el Estudio y precargó los permisos de esta request.
+        var estado = await AutenticacionProveedor.GetAuthenticationStateAsync();
+        Procu360.Infraestructura.Identidad.SesionContexto.Aplicar(estado.User, Contexto);
+    }
+
+    /// <summary>El resumen se pide después del primer dibujado: la pantalla aparece con su esqueleto.</summary>
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!primerRender || _resumen is not null) return;
         _resumen = await MiDia.ResumenAsync();
+        StateHasChanged();
     }
 }

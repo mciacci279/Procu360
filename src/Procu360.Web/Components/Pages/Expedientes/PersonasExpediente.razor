@@ -1,4 +1,4 @@
-@* ABM de las personas del expediente: demandados, codemandados y responsables solidarios.
+﻿@* ABM de las personas del expediente: demandados, codemandados y responsables solidarios.
    La grilla a la izquierda y el panel de acción destacado a la derecha. *@
 
 <div class="columnas">
@@ -20,7 +20,9 @@
 
             @if (_cargando)
             {
-                <p class="text-muted mb-0">Cargando…</p>
+                <div aria-busy="true" aria-label="Cargando personas">
+                    <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="4" Columnas="4" />
+                </div>
             }
             else if (_personas.Count == 0)
             {

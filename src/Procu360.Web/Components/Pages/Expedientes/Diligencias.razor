@@ -1,5 +1,5 @@
-@page "/diligencias"
-@rendermode InteractiveServer
+﻿@page "/diligencias"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize(Policy = "expedientes.consultar")]
 @inject Procu360.Infraestructura.Etapas.ServicioEtapas Servicio
 @inject AuthenticationStateProvider AutenticacionProveedor
@@ -28,7 +28,9 @@
 
 @if (_pagina is null)
 {
-    <p class="text-muted">Cargando…</p>
+    <div class="tarjeta" aria-busy="true" aria-label="Cargando diligencias">
+        <Esqueleto Tipo="Esqueleto.TipoEsqueleto.Tabla" Filas="6" Columnas="5" />
+    </div>
 }
 else if (_pagina.Total == 0)
 {
@@ -43,6 +45,7 @@ else
         <span><strong>@_pagina.Total</strong> diligencias</span>
         <span>Página @_pagina.Pagina de @_pagina.Paginas</span>
     </div>
+    <ZonaCargando Cargando="_cargando" Texto="Actualizando diligencias…">
     <div class="tabla-contenedor">
         <table class="table">
             <thead><tr><th>Vence</th><th>Diligencia</th><th>Expediente</th><th class="text-end">Estado</th></tr></thead>
@@ -71,6 +74,7 @@ else
             </tbody>
         </table>
     </div>
+    </ZonaCargando>
 
     <Paginador Total="_pagina.Total" Pagina="_pagina.Pagina" Paginas="_pagina.Paginas" Tamanio="_tamanio"
                IrAPagina="IrAsync" CambiarTamanio="CambiarTamanioAsync" />
@@ -91,8 +95,22 @@ else
         await CargarAsync(1);
     }
 
-    private async Task CargarAsync(int pagina) =>
-        _pagina = await Servicio.ListarDiligenciasAsync(_soloAbiertas, pagina, _tamanio);
+    private bool _cargando;
+
+    /// <summary>Redibuja antes de consultar: si no, el velo no alcanza a mostrarse.</summary>
+    private async Task CargarAsync(int pagina)
+    {
+        _cargando = true;
+        StateHasChanged();
+        try
+        {
+            _pagina = await Servicio.ListarDiligenciasAsync(_soloAbiertas, pagina, _tamanio);
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
 
     private async Task CambiarFiltroAsync(bool soloAbiertas)
     {
